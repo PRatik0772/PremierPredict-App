@@ -1,0 +1,28 @@
+kind = "data-app"
+previewPath = "/premierpredict/"
+title = "PremierPredict Dashboard"
+description = "An interactive English Premier League match outcome dashboard that compares Logistic Regression, Decision Tree, and Random Forest models, explores the historical dataset, and provides match outcome predictions."
+version = "1.0.0"
+id = "artifacts/premierpredict-dashboard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/premierpredict/" ]
+localPort = 23206
+
+[services.development]
+run = "pnpm --filter @workspace/premierpredict-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/premierpredict-dashboard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/premierpredict-dashboard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23206"
+BASE_PATH = "/premierpredict/"
