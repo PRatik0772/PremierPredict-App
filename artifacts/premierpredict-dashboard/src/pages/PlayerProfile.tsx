@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboardData, type PlayerProfile as Player } from '@/hooks/use-dashboard-data';
+import { getPositionLabel } from '@/lib/positions';
 
 const ratingDetails = [
   { key: 'pace', label: 'Pace', icon: Footprints, color: 'bg-blue-500' },
@@ -84,7 +85,7 @@ export default function PlayerProfilePage() {
                 <span className="text-[9px] uppercase tracking-[0.16em]">Overall</span>
               </div>
               <div>
-                <div className="flex flex-wrap items-center gap-2"><Badge>{player.position}</Badge><Badge variant="outline">#{rank} at {club}</Badge></div>
+                <div className="flex flex-wrap items-center gap-2"><Badge>{getPositionLabel(player.position)}</Badge><Badge variant="outline">#{rank} at {club}</Badge></div>
                 <h1 className="display-font mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">{player.commonName || player.name}</h1>
                 {player.commonName && <p className="mt-2 text-sm text-muted-foreground">{player.name}</p>}
                 <p className="mt-1 text-sm font-medium text-primary">{club}</p>

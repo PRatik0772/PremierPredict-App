@@ -67,7 +67,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE — graphite, paper, and a precise matchday red */
+/* LIGHT MODE — premium pitch green, warm paper, and champagne gold */
 :root {
   --button-outline: rgba(0, 0, 0, 0.1);
   --badge-outline: rgba(0, 0, 0, 0.05);
@@ -77,50 +77,50 @@
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
 
-  --background: 36 29% 96%;
-  --foreground: 222 24% 14%;
+  --background: 144 22% 96%;
+  --foreground: 158 29% 13%;
 
-  --border: 35 16% 84%;
-  --card: 38 33% 99%;
-  --card-foreground: 222 24% 14%;
-  --card-border: 35 16% 88%;
+  --border: 145 15% 83%;
+  --card: 0 0% 100%;
+  --card-foreground: 158 29% 13%;
+  --card-border: 145 15% 87%;
 
-  --popover: 38 33% 99%;
-  --popover-foreground: 222 24% 14%;
-  --popover-border: 35 16% 88%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 158 29% 13%;
+  --popover-border: 145 15% 87%;
 
-  --primary: 352 73% 39%;
-  --primary-foreground: 38 33% 99%;
+  --primary: 158 58% 28%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 36 22% 91%;
-  --secondary-foreground: 222 24% 20%;
+  --secondary: 145 25% 90%;
+  --secondary-foreground: 158 29% 18%;
 
-  --muted: 35 19% 91%;
-  --muted-foreground: 220 12% 45%;
+  --muted: 145 19% 91%;
+  --muted-foreground: 158 12% 42%;
 
-  --accent: 40 88% 55%;
-  --accent-foreground: 222 24% 14%;
+  --accent: 43 88% 56%;
+  --accent-foreground: 158 29% 13%;
 
-  --destructive: 352 73% 39%;
-  --destructive-foreground: 38 33% 99%;
+  --destructive: 4 67% 46%;
+  --destructive-foreground: 0 0% 100%;
 
-  --input: 35 16% 80%;
-  --ring: 352 73% 39%;
+  --input: 145 15% 78%;
+  --ring: 158 58% 28%;
 
-  --chart-1: 352 73% 39%;
-  --chart-2: 40 88% 55%;
-  --chart-3: 212 62% 45%;
-  --chart-4: 222 16% 48%;
-  --chart-5: 10 65% 48%;
+  --chart-1: 158 58% 28%;
+  --chart-2: 43 88% 56%;
+  --chart-3: 174 53% 39%;
+  --chart-4: 158 18% 47%;
+  --chart-5: 28 75% 49%;
 
-  --sidebar: 222 24% 14%;
-  --sidebar-foreground: 36 29% 96%;
-  --sidebar-border: 222 18% 23%;
-  --sidebar-primary: 40 88% 55%;
-  --sidebar-primary-foreground: 222 24% 14%;
-  --sidebar-accent: 222 18% 21%;
-  --sidebar-accent-foreground: 36 29% 96%;
-  --sidebar-ring: 40 88% 55%;
+  --sidebar: 158 43% 12%;
+  --sidebar-foreground: 145 30% 95%;
+  --sidebar-border: 158 30% 22%;
+  --sidebar-primary: 43 88% 56%;
+  --sidebar-primary-foreground: 158 29% 13%;
+  --sidebar-accent: 158 34% 18%;
+  --sidebar-accent-foreground: 145 30% 96%;
+  --sidebar-ring: 43 88% 56%;
 
   --app-font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   --app-font-serif: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
@@ -150,40 +150,40 @@
 }
 
 .dark {
-  --background: 222 24% 10%;
-  --foreground: 36 29% 94%;
-  --border: 222 18% 24%;
-  --card: 222 22% 14%;
-  --card-foreground: 36 29% 94%;
-  --card-border: 222 18% 24%;
-  --popover: 222 22% 14%;
-  --popover-foreground: 36 29% 94%;
-  --popover-border: 222 18% 24%;
-  --primary: 352 73% 55%;
-  --primary-foreground: 222 24% 10%;
-  --secondary: 222 18% 22%;
-  --secondary-foreground: 36 29% 94%;
-  --muted: 222 18% 20%;
-  --muted-foreground: 35 12% 67%;
-  --accent: 40 88% 55%;
-  --accent-foreground: 222 24% 10%;
-  --destructive: 352 73% 55%;
-  --destructive-foreground: 222 24% 10%;
-  --input: 222 18% 28%;
-  --ring: 40 88% 55%;
-  --chart-1: 352 73% 55%;
-  --chart-2: 40 88% 55%;
-  --chart-3: 212 62% 58%;
-  --chart-4: 222 16% 66%;
-  --chart-5: 10 65% 58%;
-  --sidebar: 222 30% 7%;
-  --sidebar-foreground: 36 29% 94%;
-  --sidebar-border: 222 18% 18%;
-  --sidebar-primary: 40 88% 55%;
-  --sidebar-primary-foreground: 222 24% 10%;
-  --sidebar-accent: 222 18% 17%;
-  --sidebar-accent-foreground: 36 29% 94%;
-  --sidebar-ring: 40 88% 55%;
+  --background: 158 27% 8%;
+  --foreground: 145 30% 94%;
+  --border: 158 18% 24%;
+  --card: 158 25% 12%;
+  --card-foreground: 145 30% 94%;
+  --card-border: 158 18% 24%;
+  --popover: 158 25% 12%;
+  --popover-foreground: 145 30% 94%;
+  --popover-border: 158 18% 24%;
+  --primary: 150 55% 48%;
+  --primary-foreground: 158 27% 8%;
+  --secondary: 158 18% 20%;
+  --secondary-foreground: 145 30% 94%;
+  --muted: 158 18% 19%;
+  --muted-foreground: 145 12% 67%;
+  --accent: 43 88% 56%;
+  --accent-foreground: 158 27% 8%;
+  --destructive: 4 67% 56%;
+  --destructive-foreground: 158 27% 8%;
+  --input: 158 18% 28%;
+  --ring: 43 88% 56%;
+  --chart-1: 150 55% 48%;
+  --chart-2: 43 88% 56%;
+  --chart-3: 174 53% 55%;
+  --chart-4: 145 16% 66%;
+  --chart-5: 28 75% 58%;
+  --sidebar: 158 48% 6%;
+  --sidebar-foreground: 145 30% 94%;
+  --sidebar-border: 158 25% 16%;
+  --sidebar-primary: 43 88% 56%;
+  --sidebar-primary-foreground: 158 27% 8%;
+  --sidebar-accent: 158 29% 13%;
+  --sidebar-accent-foreground: 145 30% 94%;
+  --sidebar-ring: 43 88% 56%;
 }
 
 @layer base {
@@ -208,6 +208,11 @@
 @layer utilities {
   .display-font { font-family: var(--app-font-serif); }
   .mono-font { font-family: var(--app-font-mono); }
+  .sidebar-shell {
+    background:
+      radial-gradient(circle at 20% 0%, hsl(var(--sidebar-primary) / 0.13), transparent 17rem),
+      linear-gradient(180deg, hsl(var(--sidebar)), hsl(var(--sidebar) / 0.9));
+  }
   .surface-grid {
     background-image: linear-gradient(hsl(var(--border) / .35) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / .35) 1px, transparent 1px);
     background-size: 24px 24px;

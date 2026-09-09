@@ -1,211 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
-import {
-  Activity,
-  ArrowLeftRight,
-  BarChart3,
-  BrainCircuit,
-  CalendarDays,
-  Check,
-  ChevronRight,
-  CircleHelp,
-  Compass,
-  Database,
-  Download,
-  GitCommitHorizontal,
-  Info,
-  Network,
-  RefreshCw,
-  Share2,
-  ShieldCheck,
-  Target,
-  TrendingUp,
-  Trophy,
-  UserRound,
-  UsersRound,
-} from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { useLocation } from 'wouter';
-import { useDashboardData, type DashboardData, type ModelMetric, type PlayerProfile } from '@/hooks/use-dashboard-data';
-import { ExploreWorkbench } from '@/components/ExploreWorkbench';
-import { PredictionIntelligence } from '@/components/PredictionIntelligence';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-
-const CHART_COLORS = {
-  primary: 'hsl(var(--chart-1))',
-  accent: 'hsl(var(--chart-2))',
-  blue: 'hsl(var(--chart-3))',
-  slate: 'hsl(var(--chart-4))',
-};
-
-const tabs = [
-  { value: 'overview', label: 'Overview', icon: BarChart3 },
-  { value: 'prediction', label: 'Match prediction', icon: Target },
-  { value: 'teams', label: 'Team insights', icon: UsersRound },
-  { value: 'explore', label: 'Explore & compare', icon: Compass },
-  { value: 'evaluation', label: 'Model evaluation', icon: BrainCircuit },
-];
-
-const outcomeInfo: Record<string, { label: string; short: string; color: string }> = {
-  H: { label: 'Home win', short: 'Home team wins', color: CHART_COLORS.primary },
-  D: { label: 'Draw', short: 'Both teams finish level', color: CHART_COLORS.accent },
-  A: { label: 'Away win', short: 'Away team wins', color: CHART_COLORS.blue },
-};
-
-const modelInfo: Record<string, { title: string; description: string; bestFor: string }> = {
-  'Decision Tree': {
-    title: 'Decision Tree',
-    description: 'Follows a sequence of yes/no-style splits, such as recent form, previous standings, goals, and ratings.',
-    bestFor: 'Easy to explain: the most presentation-friendly model.',
-  },
-  'Logistic Regression': {
-    title: 'Logistic Regression',
-    description: 'Combines the input features into weighted evidence for each possible result.',
-    bestFor: 'A simple, transparent baseline for comparison.',
-  },
-  'Random Forest': {
-    title: 'Random Forest',
-    description: 'Combines many decision trees so one unusual split has less influence on the final result.',
-    bestFor: 'A stronger ensemble comparison model.',
-  },
-};
-
-export default function Dashboard() {
-  const { data, isLoading, isError, refetch } = useDashboardData();
-  const [activeTab, setActiveTab] = useState(() => {
-    const requested = new URLSearchParams(window.location.search).get('tab');
-    return tabs.some((tab) => tab.value === requested) ? requested! : 'overview';
-  });
-  const [selectedModel, setSelectedModel] = useState('');
-  const [homeTeam, setHomeTeam] = useState('');
-  const [awayTeam, setAwayTeam] = useState('');
-  const { toast } = useToast();
-
-  useEffect(() => {
-    if (!data) return;
-    setSelectedModel((current) => current || data.metrics[0]?.model || '');
-    setHomeTeam((current) => current || data.teams[0] || '');
-    setAwayTeam((current) => current || data.teams.find((team) => team !== data.teams[0]) || '');
-  }, [data]);
-
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    if (activeTab === 'overview') url.searchParams.delete('tab');
-    else url.searchParams.set('tab', activeTab);
-    window.history.replaceState({}, '', url);
-  }, [activeTab]);
-
-  if (isLoading) return <DashboardSkeleton />;
-
-  if (isError || !data) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-background p-6">
-        <Card className="w-full max-w-md border-destructive/20">
-          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-              <Database className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="display-font text-xl font-semibold">The dataset is unavailable</h2>
-              <p className="mt-2 text-sm text-muted-foreground">PremierPredict could not read its local evidence file. Try loading it again.</p>
-            </div>
-            <Button data-testid="button-retry-dashboard" onClick={() => refetch()} className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Retry load
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const topModel = data.metrics.reduce((best, metric) => (best.accuracy > metric.accuracy ? best : metric));
-
-  return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-sidebar text-sidebar-foreground lg:flex">
-        <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
-            <Trophy className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="display-font text-[17px] font-semibold tracking-tight">PremierPredict</div>
-            <div className="mono-font text-[9px] uppercase tracking-[0.22em] text-sidebar-foreground/55">Research desk</div>
-          </div>
-        </div>
-
-        <div className="flex flex-1 flex-col px-3 py-7">
-          <p className="mono-font px-3 text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/45">Workspace</p>
-          <nav className="mt-3 space-y-1" aria-label="Dashboard sections">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const active = activeTab === tab.value;
-              return (
-                <button
-                  key={tab.value}
-                  data-testid={`button-sidebar-${tab.value}`}
-                  onClick={() => setActiveTab(tab.value)}
-                  className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                    active ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 ${active ? 'text-sidebar-primary' : 'text-sidebar-foreground/45'}`} />
-                  <span>{tab.label}</span>
-                  {active && <ChevronRight className="ml-auto h-3.5 w-3.5 text-sidebar-primary" />}
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="mt-auto rounded-xl border border-sidebar-border bg-sidebar-accent/55 p-4">
-            <div className="flex items-center gap-2 text-xs font-medium">
-              <ShieldCheck className="h-4 w-4 text-sidebar-primary" />
-              Evidence pinned
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-sidebar-foreground/55">A presentation-ready view of the reproducible research dataset.</p>
-          </div>
-        </div>
-
-        <div className="border-t border-sidebar-border px-6 py-4">
-          <div className="mono-font text-[10px] uppercase tracking-[0.16em] text-sidebar-foreground/45">Premier League</div>
-          <div className="mt-1 text-xs text-sidebar-foreground/65">Outcome intelligence · v1</div>
-        </div>
-      </aside>
-
-      <div className="lg:pl-[248px]">
-        <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-          <div className="mx-auto flex min-h-20 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8">
-            <div className="flex items-center gap-3 lg:hidden">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Trophy className="h-4 w-4" /></div>
-              <div>
-                <div className="display-font text-base font-semibold">PremierPredict</div>
-                <div className="mono-font text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Research desk</div>
-              </div>
-            </div>
-            <div className="hidden lg:block">
-              <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-muted-foreground">University data science presentation</p>
-              <p className="mt-1 text-xs text-muted-foreground">Match intelligence desk <span className="mx-1.5 text-border">/</span> local evidence view</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => exportDashboardReport(data, selectedModel, homeTeam, awayTeam)} className="hidden gap-2 rounded-full sm:flex" data-testid="button-export-report"><Download className="h-3.5 w-3.5" /> Export</Button>
+n-export-report"><Download className="h-3.5 w-3.5" /> Export</Button>
               <Button variant="outline" size="icon" onClick={async () => {
                 const shared = await shareDashboard();
                 toast({ title: shared ? 'Dashboard shared' : 'Link copied', description: shared ? 'The share sheet was opened.' : 'The dashboard link is ready to paste.' });
@@ -241,8 +34,8 @@ export default function Dashboard() {
             <div className="hidden items-end justify-between gap-5 lg:flex">
               <div>
                 <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-primary">PremierPredict / Dashboard</p>
-                <h1 className="display-font mt-2 text-4xl font-semibold tracking-[-0.035em]">Match intelligence, made legible.</h1>
-                <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">Compare outcomes, inspect model behaviour, and test a fixture against the evidence.</p>
+                <h1 className="display-font mt-2 text-4xl font-semibold tracking-[-0.035em]">Premier League predictions.</h1>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">Choose a section to view the project data.</p>
               </div>
               <TabsList className="h-11 border border-border bg-card p-1 shadow-sm">
                 {tabs.map((tab) => <TabsTrigger key={tab.value} value={tab.value} data-testid={`tab-${tab.value}`} className="h-9 gap-2 px-3 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><tab.icon className="h-3.5 w-3.5" />{tab.label}</TabsTrigger>)}
@@ -328,12 +121,12 @@ function OverviewTab({ data, topModel }: { data: DashboardData; topModel: ModelM
               <div className="divide-y divide-border/70">
                 {data.recentMatches.slice(0, 6).map((match, index) => (
                   <div key={`${match.kickoff}-${match.homeTeam}-${index}`} data-testid={`row-recent-match-${index}`} className="flex items-center gap-2 px-2 py-3.5 sm:px-3">
-                    <div className="min-w-0 flex-1 text-right text-xs font-semibold sm:text-sm">{match.homeTeam}</div>
+                    <div className="flex min-w-0 flex-1 items-center justify-end gap-2 text-right text-xs font-semibold sm:text-sm"><span className="truncate">{match.homeTeam}</span><ClubCrest team={match.homeTeam} size="sm" /></div>
                     <div className="w-[74px] shrink-0 text-center">
                       <div className="mono-font rounded-md bg-muted px-2 py-1.5 text-xs font-medium">{match.homeScore} <span className="text-muted-foreground">—</span> {match.awayScore}</div>
                       <div className="mt-1 text-[10px] text-muted-foreground">{safeDate(match.kickoff)}</div>
                     </div>
-                    <div className="min-w-0 flex-1 text-left text-xs font-semibold sm:text-sm">{match.awayTeam}</div>
+                    <div className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-semibold sm:text-sm"><ClubCrest team={match.awayTeam} size="sm" /><span className="truncate">{match.awayTeam}</span></div>
                   </div>
                 ))}
               </div>
@@ -361,77 +154,106 @@ function MetricCard({ icon: Icon, label, value, note, accent }: { icon: typeof A
   );
 }
 
+function CompetitionBadge({ dark = false }: { dark?: boolean }) {
+  return (
+    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 ${dark ? 'border-white/15 bg-white/10 text-white' : 'border-primary/20 bg-card text-foreground shadow-sm'}`}>
+      <div className={`flex h-7 w-7 items-center justify-center rounded-full ${dark ? 'bg-[#f4c84a] text-[#071d16]' : 'bg-primary text-primary-foreground'}`}>
+        <Trophy className="h-3.5 w-3.5" />
+      </div>
+      <div className="text-left leading-none">
+        <div className={`text-[8px] uppercase tracking-[0.18em] ${dark ? 'text-white/55' : 'text-muted-foreground'}`}>UEFA</div>
+        <div className="mt-0.5 text-[10px] font-bold tracking-[0.06em]">CHAMPIONS LEAGUE</div>
+      </div>
+    </div>
+  );
+}
+
 function PredictionTab({ data, selectedModel, setSelectedModel, homeTeam, setHomeTeam, awayTeam, setAwayTeam }: { data: DashboardData; selectedModel: string; setSelectedModel: (value: string) => void; homeTeam: string; setHomeTeam: (value: string) => void; awayTeam: string; setAwayTeam: (value: string) => void }) {
   const prediction = data.predictions[selectedModel]?.[`${homeTeam}|||${awayTeam}`];
   const selectedMetric = data.metrics.find((metric) => metric.model === selectedModel);
+  const homeForm = data.formByClub[homeTeam];
+  const awayForm = data.formByClub[awayTeam];
+  const homePerformance = data.clubPerformance[homeTeam];
+  const awayPerformance = data.clubPerformance[awayTeam];
+  const headToHead = data.headToHead[`${homeTeam}|||${awayTeam}`];
   const chartData = prediction?.probabilities.map((item) => ({ ...item, label: outcomeInfo[item.outcome]?.label || item.outcome, probability: Number((item.probability * 100).toFixed(1)) })) || [];
   const predictedInfo = prediction ? outcomeInfo[prediction.predicted] || outcomeInfo.D : null;
   const confidence = prediction?.probabilities.find((item) => item.outcome === prediction.predicted)?.probability || 0;
-  const confidenceLabel = confidence >= 0.6 ? 'Strongest signal' : confidence >= 0.45 ? 'Lean, not a certainty' : 'Very close call';
-  const modelDetails = modelInfo[selectedModel] || { title: selectedModel, description: 'This model compares the match features and returns a probability for each possible result.', bestFor: 'Use it alongside the other models.' };
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-primary">Inference workspace</p>
-        <h2 className="display-font mt-2 text-3xl font-semibold tracking-[-0.03em]">Test a fixture</h2>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Choose the teams, then read the result as a probability—not a guarantee. The highest percentage is the model’s current best-supported outcome.</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-primary">Match prediction</p>
+          <h2 className="display-font mt-2 text-3xl font-semibold tracking-[-0.03em]">Select a fixture.</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Choose two clubs and a model.</p>
+        </div>
+        <CompetitionBadge />
       </div>
-      <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
-        <Card className="playful-pop h-fit overflow-hidden rounded-3xl">
-          <CardHeader className="border-b border-border/70 pb-5">
-            <CardTitle className="display-font text-xl">Match setup</CardTitle>
-            <CardDescription className="mt-1">Configure the fixture and inference model.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 p-5 sm:p-6">
-            <div className="space-y-2">
-              <label htmlFor="model-select" className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Inference model</label>
-              <Select value={selectedModel} onValueChange={setSelectedModel}>
-              <SelectTrigger id="model-select" data-testid="select-model" className="h-11 bg-background"><SelectValue placeholder="Select a model" /></SelectTrigger>
-                <SelectContent>{data.metrics.map((metric) => <SelectItem key={metric.model} value={metric.model} data-testid={`option-model-${metric.model}`}>{metric.model}</SelectItem>)}</SelectContent>
-              </Select>
-              {selectedMetric && <div className="flex items-start gap-2 pt-1 text-xs leading-relaxed text-muted-foreground"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /> This model correctly classified {(selectedMetric.accuracy * 100).toFixed(1)}% of its unseen test matches.</div>}
-            </div>
-            <div className="playful-pop rounded-2xl border border-primary/15 bg-primary/[0.045] p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold"><BrainCircuit className="h-3.5 w-3.5 text-primary" /> What this model does</div>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{modelDetails.description}</p>
-              <p className="mt-2 text-[11px] font-medium text-primary">{modelDetails.bestFor}</p>
-            </div>
+      <div className="grid items-start gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="space-y-5 xl:sticky xl:top-24">
+          <Card className="playful-pop overflow-hidden rounded-3xl">
+            <CardHeader className="border-b border-border/70 pb-5">
+              <CardTitle className="display-font text-xl">Prediction setup</CardTitle>
+              <CardDescription className="mt-1">Select a model and fixture.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 p-5 sm:p-6">
+              <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-[#071d16] p-4 text-white shadow-inner">
+                <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full border-[18px] border-white/[0.06]" />
+                <div className="relative flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/55">Home</div>
+                    <div className="flex items-center gap-2"><ClubCrest team={homeTeam} size="md" /><span className="truncate text-sm font-semibold">{homeTeam || 'Select team'}</span></div>
+                  </div>
+                  <div className="mono-font rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/70">VS</div>
+                  <div className="min-w-0 flex-1 text-right">
+                    <div className="mb-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/55">Away</div>
+                    <div className="flex items-center justify-end gap-2"><span className="truncate text-sm font-semibold">{awayTeam || 'Select team'}</span><ClubCrest team={awayTeam} size="md" /></div>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="model-select" className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Model</label>
+                <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger id="model-select" data-testid="select-model" className="h-11 bg-background"><SelectValue placeholder="Select a model" /></SelectTrigger>
+                  <SelectContent>{data.metrics.map((metric) => <SelectItem key={metric.model} value={metric.model} data-testid={`option-model-${metric.model}`}>{metric.model}</SelectItem>)}</SelectContent>
+                </Select>
+                {selectedMetric && <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"><Check className="h-3.5 w-3.5 shrink-0 text-primary" /> Test accuracy: <strong className="text-foreground">{(selectedMetric.accuracy * 100).toFixed(1)}%</strong></div>}
+              </div>
 
-            <div className="relative rounded-3xl border border-border bg-muted/40 p-4">
-              <div className="space-y-2">
-                <label htmlFor="home-team-select" className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Home team</label>
-                <Select value={homeTeam} onValueChange={setHomeTeam}>
-                  <SelectTrigger id="home-team-select" data-testid="select-home-team" className="h-11 bg-card"><SelectValue placeholder="Select home team" /></SelectTrigger>
-                  <SelectContent>{data.teams.map((team) => <SelectItem key={`home-${team}`} value={team} disabled={team === awayTeam}>{team}</SelectItem>)}</SelectContent>
-                </Select>
+              <div className="relative rounded-3xl border border-border bg-muted/40 p-4">
+                <div className="space-y-2">
+                  <label htmlFor="home-team-select" className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Home team</label>
+                  <Select value={homeTeam} onValueChange={setHomeTeam}>
+                    <SelectTrigger id="home-team-select" data-testid="select-home-team" className="h-11 bg-card"><SelectValue placeholder="Select home team" /></SelectTrigger>
+                    <SelectContent>{data.teams.map((team) => <SelectItem key={`home-${team}`} value={team} disabled={team === awayTeam}>{team}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="relative z-10 flex justify-center py-2">
+                  <Button type="button" variant="outline" size="icon" data-testid="button-swap-teams" onClick={() => { setHomeTeam(awayTeam); setAwayTeam(homeTeam); }} title="Swap home and away teams" className="h-8 w-8 rounded-full bg-card shadow-sm">
+                    <ArrowLeftRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="away-team-select" className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Away team</label>
+                  <Select value={awayTeam} onValueChange={setAwayTeam}>
+                    <SelectTrigger id="away-team-select" data-testid="select-away-team" className="h-11 bg-card"><SelectValue placeholder="Select away team" /></SelectTrigger>
+                    <SelectContent>{data.teams.map((team) => <SelectItem key={`away-${team}`} value={team} disabled={team === homeTeam}>{team}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="relative z-10 flex justify-center py-2">
-                <Button type="button" variant="outline" size="icon" data-testid="button-swap-teams" onClick={() => { setHomeTeam(awayTeam); setAwayTeam(homeTeam); }} title="Swap home and away teams" className="h-8 w-8 rounded-full bg-card shadow-sm">
-                  <ArrowLeftRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="away-team-select" className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Away team</label>
-                <Select value={awayTeam} onValueChange={setAwayTeam}>
-                  <SelectTrigger id="away-team-select" data-testid="select-away-team" className="h-11 bg-card"><SelectValue placeholder="Select away team" /></SelectTrigger>
-                  <SelectContent>{data.teams.map((team) => <SelectItem key={`away-${team}`} value={team} disabled={team === homeTeam}>{team}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-card p-3 text-xs leading-relaxed text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-              Predictions are read from the supplied sample inference set; an unavailable fixture is shown honestly rather than estimated.
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <MatchupReadCard homeTeam={homeTeam} awayTeam={awayTeam} homeForm={homeForm} awayForm={awayForm} homePerformance={homePerformance} awayPerformance={awayPerformance} headToHead={headToHead} />
+        </div>
 
         <Card className="playful-pop min-h-[560px] overflow-hidden rounded-3xl">
           <CardHeader className="border-b border-border/70 pb-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardTitle className="display-font text-xl">Inference result</CardTitle>
-                <CardDescription className="mt-1">Outcome probabilities for the selected fixture.</CardDescription>
+                <CardTitle className="display-font text-xl">Prediction</CardTitle>
+                <CardDescription className="mt-1">Model probabilities for this fixture.</CardDescription>
               </div>
               {selectedMetric && <Badge variant="outline" className="mono-font text-[10px]">{selectedMetric.model}</Badge>}
             </div>
@@ -439,17 +261,32 @@ function PredictionTab({ data, selectedModel, setSelectedModel, homeTeam, setHom
           <CardContent className="p-5 sm:p-7">
             {prediction ? (
               <div className="space-y-6">
-                <div className="surface-grid relative overflow-hidden rounded-3xl border border-primary/20 bg-primary/[0.045] p-5 sm:p-6">
-                  <div className="relative z-10 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+                <div className="relative overflow-hidden rounded-3xl border border-[#1e5a45] bg-[#071d16] p-5 text-white shadow-lg sm:p-7">
+                   <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full border-[26px] border-white/[0.04]" />
+                   <div className="relative z-10 mb-5 flex justify-center"><CompetitionBadge dark /></div>
+                   <div className="relative z-10 mb-5 flex items-center justify-center gap-4 sm:gap-7">
+                     <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+                       <ClubCrest team={homeTeam} size="lg" className="shadow-md shadow-primary/10" />
+                       <span className="max-w-[9rem] truncate text-xs font-semibold sm:text-sm">{homeTeam}</span>
+                     </div>
+                     <div className="flex flex-col items-center gap-1">
+                       <span className="mono-font text-[9px] uppercase tracking-[0.2em] text-white/50">Match</span>
+                       <span className="display-font text-2xl font-semibold text-[#f4c84a]">VS</span>
+                     </div>
+                     <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+                       <ClubCrest team={awayTeam} size="lg" className="shadow-md shadow-primary/10" />
+                       <span className="max-w-[9rem] truncate text-xs font-semibold sm:text-sm">{awayTeam}</span>
+                     </div>
+                   </div>
+                   <div className="relative z-10 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
                     <div>
-                      <div className="mono-font text-[10px] uppercase tracking-[0.18em] text-primary">The model leans toward</div>
+                      <div className="mono-font text-[10px] uppercase tracking-[0.18em] text-[#f4c84a]">Predicted result</div>
                       <div data-testid="text-predicted-winner" className="display-font mt-2 text-4xl font-semibold tracking-[-0.04em]">{predictedInfo?.label}</div>
-                      <div className="mt-2 text-sm text-muted-foreground">{predictedInfo?.short}: <span className="font-semibold text-foreground">{prediction.predicted === 'H' ? homeTeam : prediction.predicted === 'A' ? awayTeam : `${homeTeam} and ${awayTeam}`}</span></div>
+                      <div className="mt-2 text-sm text-white/65"><span className="font-semibold text-white">{prediction.predicted === 'H' ? homeTeam : prediction.predicted === 'A' ? awayTeam : `${homeTeam} and ${awayTeam}`}</span></div>
                     </div>
                     <div className="sm:text-right">
-                      <div className="text-xs uppercase tracking-[0.1em] text-muted-foreground">Chance according to model</div>
-                      <div className="display-font mt-1 text-3xl font-semibold text-primary">{(confidence * 100).toFixed(1)}%</div>
-                      <div className="mt-1 text-[11px] font-medium text-primary">{confidenceLabel}</div>
+                      <div className="text-xs uppercase tracking-[0.1em] text-white/55">Probability</div>
+                      <div className="display-font mt-1 text-3xl font-semibold text-[#f4c84a]">{(confidence * 100).toFixed(1)}%</div>
                     </div>
                   </div>
                 </div>
@@ -465,36 +302,7 @@ function PredictionTab({ data, selectedModel, setSelectedModel, homeTeam, setHom
                     </div>
                   ))}
                 </div>
-                <div className="h-[270px] sm:h-[320px]" data-testid="chart-prediction-probabilities">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 24, left: 12, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="2 5" horizontal={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" domain={[0, 100]} hide />
-                      <YAxis dataKey="label" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600, fill: 'hsl(var(--foreground))' }} width={132} />
-                      <Tooltip cursor={{ fill: 'hsl(var(--muted) / .55)' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '10px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} formatter={(value: number) => [`${value}%`, 'Probability']} />
-                      <Bar dataKey="probability" barSize={42} radius={[0, 5, 5, 0]} isAnimationActive={false} label={{ position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
-                        {chartData.map((item, index) => <Cell key={`prediction-${index}`} fill={item.outcome === prediction.predicted ? CHART_COLORS.primary : 'hsl(var(--muted-foreground) / .25)'} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <PredictionIntelligence data={data} prediction={prediction} homeTeam={homeTeam} awayTeam={awayTeam} />
-                <div>
-                  <div className="mb-3 flex items-center gap-2">
-                    <UsersRound className="h-4 w-4 text-primary" />
-                    <h3 className="display-font text-lg font-semibold">Selected club squads</h3>
-                    <Badge variant="secondary" className="ml-auto text-[9px]">EA FC ratings</Badge>
-                  </div>
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <SquadPanel club={homeTeam} players={data.playersByClub[homeTeam] || []} side="Home" compact />
-                    <SquadPanel club={awayTeam} players={data.playersByClub[awayTeam] || []} side="Away" compact />
-                  </div>
-                </div>
-                 <ModelProfile model={selectedModel} />
-                 <div className="rounded-2xl border border-accent/30 bg-accent/[0.10] p-4">
-                   <div className="flex items-center gap-2 text-xs font-semibold"><CircleHelp className="h-3.5 w-3.5 text-accent-foreground" /> How to read this</div>
-                   <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Start with the largest percentage. It is the outcome this model considers most likely, not a promise. If the three percentages are close, treat the fixture as uncertain and compare the other models before making a decision.</p>
-                 </div>
+                <ModelInsightPanel data={data} model={selectedModel} prediction={prediction} homeTeam={homeTeam} awayTeam={awayTeam} />
               </div>
             ) : (
               <EmptyState title="No stored prediction for this fixture" detail="Try another team pairing or model. This view never fills gaps with an invented estimate." large />
@@ -502,6 +310,118 @@ function PredictionTab({ data, selectedModel, setSelectedModel, homeTeam, setHom
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function MatchupReadCard({
+  homeTeam,
+  awayTeam,
+  homeForm,
+  awayForm,
+  homePerformance,
+  awayPerformance,
+  headToHead,
+}: {
+  homeTeam: string;
+  awayTeam: string;
+  homeForm: DashboardData['formByClub'][string] | undefined;
+  awayForm: DashboardData['formByClub'][string] | undefined;
+  homePerformance: DashboardData['clubPerformance'][string] | undefined;
+  awayPerformance: DashboardData['clubPerformance'][string] | undefined;
+  headToHead: DashboardData['headToHead'][string] | undefined;
+}) {
+  const homePoints = homeForm ? homeForm.wins * 3 + homeForm.draws : 0;
+  const awayPoints = awayForm ? awayForm.wins * 3 + awayForm.draws : 0;
+  const totalMeetings = headToHead?.meetings || 0;
+
+  return (
+    <Card className="overflow-hidden rounded-3xl border-primary/10">
+      <CardHeader className="border-b border-border/70 pb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="display-font text-lg">Quick matchup read</CardTitle>
+            <CardDescription className="mt-1 text-xs">The context around this fixture.</CardDescription>
+          </div>
+          <div className="rounded-xl bg-primary/10 p-2 text-primary"><Activity className="h-4 w-4" /></div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 p-4">
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-muted/45 p-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <ClubCrest team={homeTeam} size="sm" />
+            <div className="min-w-0">
+              <div className="truncate text-xs font-semibold">{homeTeam}</div>
+              <div className="mono-font mt-0.5 text-[9px] uppercase tracking-[0.12em] text-muted-foreground">Home</div>
+            </div>
+          </div>
+          <span className="mono-font rounded-full border border-border bg-card px-2 py-1 text-[9px] font-semibold text-muted-foreground">VS</span>
+          <div className="flex min-w-0 items-center gap-2 text-right">
+            <div className="min-w-0">
+              <div className="truncate text-xs font-semibold">{awayTeam}</div>
+              <div className="mono-font mt-0.5 text-[9px] uppercase tracking-[0.12em] text-muted-foreground">Away</div>
+            </div>
+            <ClubCrest team={awayTeam} size="sm" />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border/70 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em]">Recent form</div>
+            <div className="text-[10px] text-muted-foreground">Last 5</div>
+          </div>
+          <div className="mt-3 space-y-3">
+            <CompactFormRow team={homeTeam} form={homeForm} points={homePoints} />
+            <CompactFormRow team={awayTeam} form={awayForm} points={awayPoints} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <SidebarStat label={`${homeTeam} home win`} value={homePerformance ? `${(homePerformance.homeWinRate * 100).toFixed(1)}%` : '—'} />
+          <SidebarStat label={`${awayTeam} away win`} value={awayPerformance ? `${(awayPerformance.awayWinRate * 100).toFixed(1)}%` : '—'} />
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-accent/25 bg-accent/[0.08] p-3">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em]">Head-to-head</div>
+            <div className="mt-1 text-[10px] text-muted-foreground">{totalMeetings ? `${totalMeetings} stored meetings` : 'No stored meetings'}</div>
+          </div>
+          {headToHead ? (
+            <div className="flex items-center gap-2 text-right">
+              <div><div className="display-font text-lg font-semibold">{headToHead.firstWins}</div><div className="text-[9px] text-muted-foreground">{homeTeam} W</div></div>
+              <div className="text-muted-foreground">·</div>
+              <div><div className="display-font text-lg font-semibold">{headToHead.draws}</div><div className="text-[9px] text-muted-foreground">Draw</div></div>
+              <div className="text-muted-foreground">·</div>
+              <div><div className="display-font text-lg font-semibold">{headToHead.secondWins}</div><div className="text-[9px] text-muted-foreground">{awayTeam} W</div></div>
+            </div>
+          ) : <span className="text-xs text-muted-foreground">—</span>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CompactFormRow({ team, form, points }: { team: string; form: DashboardData['formByClub'][string] | undefined; points: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-20 truncate text-[10px] font-semibold">{team}</span>
+      <div className="flex flex-1 gap-1">
+        {form?.matches.slice(0, 5).map((match, index) => (
+          <span key={`${match.kickoff}-${index}`} className={`flex h-5 w-5 items-center justify-center rounded-md text-[8px] font-bold ${match.result === 'W' ? 'bg-primary text-primary-foreground' : match.result === 'D' ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'}`}>
+            {match.result}
+          </span>
+        )) || <span className="text-[10px] text-muted-foreground">No form data</span>}
+      </div>
+      <span className="mono-font text-[10px] font-semibold text-primary">{points} pts</span>
+    </div>
+  );
+}
+
+function SidebarStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-muted/25 p-3">
+      <div className="display-font text-lg font-semibold text-primary">{value}</div>
+      <div className="mt-1 truncate text-[9px] uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -522,10 +442,13 @@ function TeamInsightsTab({ data, selectedTeam, setSelectedTeam }: { data: Dashbo
   return (
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-primary">Exploration / team evidence</p>
-          <h2 className="display-font mt-2 text-3xl font-semibold tracking-[-0.03em]">Compare form with the league story.</h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Inspect the latest completed season table and how match outcomes have changed across the historical dataset.</p>
+          <div className="flex items-center gap-3">
+            <ClubCrest team={team.team} size="lg" />
+            <div>
+              <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-primary">Exploration / team evidence</p>
+              <h2 className="display-font mt-2 text-3xl font-semibold tracking-[-0.03em]">Compare form with the league story.</h2>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Inspect performance, squad ratings, and an inferred matchday shape without losing the historical evidence underneath.</p>
+            </div>
         </div>
         <div className="w-full sm:w-[280px]">
           <label htmlFor="insight-team-select" className="mb-2 block text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Focus team</label>
@@ -568,6 +491,8 @@ function TeamInsightsTab({ data, selectedTeam, setSelectedTeam }: { data: Dashbo
         </div>
       )}
 
+      {team && <ClubFormation club={team.team} players={data.playersByClub[team.team] || []} />}
+
       {team && <SquadPanel club={team.team} players={data.playersByClub[team.team] || []} side="Selected club" />}
 
       <div className="grid gap-5 xl:grid-cols-[1.08fr_.92fr]">
@@ -603,7 +528,7 @@ function TeamInsightsTab({ data, selectedTeam, setSelectedTeam }: { data: Dashbo
             <table className="w-full min-w-[440px] text-sm" data-testid="table-team-standings">
               <thead className="sticky top-0 z-10 bg-muted"><tr className="text-left text-[10px] uppercase tracking-[0.11em] text-muted-foreground"><th className="px-4 py-3">#</th><th className="px-4 py-3">Team</th><th className="px-3 py-3 text-right">P</th><th className="px-3 py-3 text-right">GD</th><th className="px-4 py-3 text-right">Pts</th></tr></thead>
               <tbody className="divide-y divide-border/70">
-                {data.teamStats.map((item, index) => <tr key={item.team} className={item.team === team?.team ? 'bg-primary/[0.06]' : 'hover:bg-muted/35'}><td className="px-4 py-3 text-xs text-muted-foreground">{index + 1}</td><td className="px-4 py-3 font-semibold">{item.team}</td><td className="px-3 py-3 text-right text-muted-foreground">{item.played}</td><td className="px-3 py-3 text-right text-muted-foreground">{item.goalDifference > 0 ? '+' : ''}{item.goalDifference}</td><td className="px-4 py-3 text-right font-semibold">{item.points}</td></tr>)}
+                {data.teamStats.map((item, index) => <tr key={item.team} className={item.team === team?.team ? 'bg-primary/[0.06]' : 'hover:bg-muted/35'}><td className="px-4 py-3 text-xs text-muted-foreground">{index + 1}</td><td className="px-4 py-3"><div className="flex items-center gap-2.5"><ClubCrest team={item.team} size="sm" /><span className="font-semibold">{item.team}</span></div></td><td className="px-3 py-3 text-right text-muted-foreground">{item.played}</td><td className="px-3 py-3 text-right text-muted-foreground">{item.goalDifference > 0 ? '+' : ''}{item.goalDifference}</td><td className="px-4 py-3 text-right font-semibold">{item.points}</td></tr>)}
               </tbody>
             </table>
           </CardContent>
@@ -628,10 +553,13 @@ function SquadPanel({ club, players, side, compact = false }: { club: string; pl
       <div className="relative overflow-hidden border-b border-border/70 bg-gradient-to-br from-primary/[0.12] via-card to-accent/[0.13] p-5">
         <div className="absolute -right-7 -top-8 h-28 w-28 rounded-full border-[18px] border-primary/[0.08]" />
         <div className="relative flex items-start justify-between gap-4">
-          <div>
+          <div className="flex items-center gap-3">
+            <ClubCrest team={club} size="lg" />
+            <div>
             <div className="mono-font text-[9px] uppercase tracking-[0.18em] text-primary">{side} · squad intelligence</div>
             <h3 className="display-font mt-2 text-xl font-semibold">{club}</h3>
             <p className="mt-1 text-xs text-muted-foreground">{players.length} rated players · {positions} positions · {average.toFixed(1)} average</p>
+            </div>
           </div>
           <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/15">
             <span className="display-font text-xl font-semibold">{topPlayer.overallRating}</span>
@@ -640,7 +568,7 @@ function SquadPanel({ club, players, side, compact = false }: { club: string; pl
         </div>
         <div className="relative mt-4 flex items-center gap-3 rounded-2xl border border-white/35 bg-card/75 p-3 backdrop-blur">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/25 text-accent-foreground"><UserRound className="h-5 w-5" /></div>
-          <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{topPlayer.commonName || topPlayer.name}</div><div className="text-[10px] text-muted-foreground">Highest-rated player · {topPlayer.position}</div></div>
+          <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{topPlayer.commonName || topPlayer.name}</div><div className="text-[10px] text-muted-foreground">Highest-rated player · {getPositionLabel(topPlayer.position)}</div></div>
           <div className="mono-font text-sm font-semibold text-primary">{topPlayer.overallRating}</div>
         </div>
       </div>
@@ -651,7 +579,7 @@ function SquadPanel({ club, players, side, compact = false }: { club: string; pl
             <button type="button" key={player.id} onClick={() => navigate(`/player/${player.id}`)} data-testid={`player-${player.id}`} className="group grid w-full grid-cols-[30px_minmax(0,1fr)_42px] items-center gap-3 rounded-2xl border border-border/70 bg-card px-3 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/[0.035] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <div className="mono-font text-center text-[10px] text-muted-foreground">{String(index + 1).padStart(2, '0')}</div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2"><span className="truncate text-xs font-semibold sm:text-sm">{player.commonName || player.name}</span><Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[8px]">{player.position}</Badge></div>
+                <div className="flex items-center gap-2"><span className="truncate text-xs font-semibold sm:text-sm">{player.commonName || player.name}</span><Badge variant="outline" className="h-auto min-h-5 shrink-0 px-1.5 py-1 text-[8px] leading-tight">{getPositionLabel(player.position)}</Badge></div>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   <PlayerAttribute label="PAC" value={player.pace} />
                   <PlayerAttribute label="PAS" value={player.passing} />
@@ -857,41 +785,7 @@ function safeDate(value: string) {
 }
 
 function exportDashboardReport(data: DashboardData, selectedModel: string, homeTeam: string, awayTeam: string) {
-  const prediction = data.predictions[selectedModel]?.[`${homeTeam}|||${awayTeam}`];
-  const metric = data.metrics.find((item) => item.model === selectedModel);
-  const h2h = data.headToHead[`${homeTeam}|||${awayTeam}`];
-  const lines = [
-    '# PremierPredict Match Intelligence Report',
-    '',
-    `Generated: ${new Date().toLocaleString()}`,
-    `Fixture: ${homeTeam} vs ${awayTeam}`,
-    `Model: ${selectedModel}`,
-    metric ? `Held-out accuracy: ${(metric.accuracy * 100).toFixed(1)}%` : '',
-    '',
-    '## Prediction',
-    prediction ? `Predicted outcome: ${outcomeInfo[prediction.predicted]?.label || prediction.predicted}` : 'No stored prediction for this fixture.',
-    ...(prediction?.probabilities.map((item) => `- ${outcomeInfo[item.outcome]?.label || item.outcome}: ${(item.probability * 100).toFixed(1)}%`) || []),
-    '',
-    '## Recent form',
-    ...[homeTeam, awayTeam].map((team) => {
-      const form = data.formByClub[team];
-      return `- ${team}: ${form?.matches.map((match) => `${match.result} ${match.goalsFor}-${match.goalsAgainst} vs ${match.opponent}`).join(', ') || 'Unavailable'}`;
-    }),
-    '',
-    '## Head to head',
-    h2h ? `${homeTeam} wins ${h2h.firstWins} · Draws ${h2h.draws} · ${awayTeam} wins ${h2h.secondWins} (${h2h.meetings} meetings)` : 'Unavailable',
-    '',
-    '## Evidence note',
-    'Probabilities are stored model outputs from the pinned project pipeline. Form, head-to-head, and scoring summaries are descriptive context and do not alter the model output.',
-    data.provenance ? `Source: ${data.provenance.repository} @ ${data.provenance.source_commit}` : '',
-  ].filter((line) => line !== null);
-  const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `premierpredict-${homeTeam}-vs-${awayTeam}.md`.toLowerCase().replaceAll(' ', '-');
-  anchor.click();
-  URL.revokeObjectURL(url);
+  generateMatchReportPdf(data, selectedModel, homeTeam, awayTeam);
 }
 
 async function shareDashboard() {
