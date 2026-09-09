@@ -9,3 +9,6 @@ expertMode = true
 [[ports]]
 localPort = 23206
 externalPort = 80
+
+[deployment]
+deploymentTarget = "cloudrun"
