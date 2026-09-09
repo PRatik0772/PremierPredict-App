@@ -3,6 +3,8 @@ import { Heart, Search, Shield, Sparkles, Star, Swords, UserRound, UsersRound } 
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useLocation } from 'wouter';
 import type { DashboardData, PlayerProfile, TeamStat } from '@/hooks/use-dashboard-data';
+import { ClubCrest } from '@/components/ClubCrest';
+import { getPositionLabel } from '@/lib/positions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,7 +79,7 @@ export function ExploreWorkbench({ data }: { data: DashboardData }) {
           <div className="grid gap-3 lg:grid-cols-[1fr_240px_190px]">
             <div className="relative"><Search className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search players or clubs…" className="h-11 pl-10" data-testid="input-player-search" /></div>
             <Select value={clubFilter} onValueChange={setClubFilter}><SelectTrigger className="h-11"><SelectValue placeholder="All clubs" /></SelectTrigger><SelectContent><SelectItem value="all">All clubs</SelectItem>{data.teams.map((team) => <SelectItem key={team} value={team}>{team}</SelectItem>)}</SelectContent></Select>
-            <Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-11"><SelectValue placeholder="All positions" /></SelectTrigger><SelectContent><SelectItem value="all">All positions</SelectItem>{positions.map((position) => <SelectItem key={position} value={position}>{position}</SelectItem>)}</SelectContent></Select>
+            <Select value={positionFilter} onValueChange={setPositionFilter}><SelectTrigger className="h-11"><SelectValue placeholder="All positions" /></SelectTrigger><SelectContent><SelectItem value="all">All positions</SelectItem>{positions.map((position) => <SelectItem key={position} value={position}>{getPositionLabel(position)}</SelectItem>)}</SelectContent></Select>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>{results.length} shown · {allPlayers.length} available</span><Button variant={onlyFavourites ? 'default' : 'outline'} size="sm" onClick={() => setOnlyFavourites((value) => !value)} className="h-8 gap-2 rounded-full"><Heart className={`h-3.5 w-3.5 ${onlyFavourites ? 'fill-current' : ''}`} />{favourites.players.length} favourites</Button></div>
           {results.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -87,7 +89,7 @@ export function ExploreWorkbench({ data }: { data: DashboardData }) {
                 <div className="flex items-start gap-3">
                   <button onClick={() => navigate(`/player/${player.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary">{player.overallRating}</div>
-                    <div className="min-w-0"><div className="truncate text-sm font-semibold">{player.commonName || player.name}</div><div className="mt-1 truncate text-[10px] text-muted-foreground">{player.club} · {player.position}</div></div>
+                    <div className="min-w-0"><div className="truncate text-sm font-semibold">{player.commonName || player.name}</div><div className="mt-1 truncate text-[10px] text-muted-foreground">{player.club} · {getPositionLabel(player.position)}</div></div>
                   </button>
                   <Button variant="ghost" size="icon" onClick={() => persist({ ...favourites, players: favourite ? favourites.players.filter((id) => id !== player.id) : [...favourites.players, player.id] })} aria-label={`${favourite ? 'Remove' : 'Add'} ${player.name} ${favourite ? 'from' : 'to'} favourites`} className="h-9 w-9 rounded-full"><Heart className={`h-4 w-4 ${favourite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} /></Button>
                 </div>
@@ -103,9 +105,9 @@ export function ExploreWorkbench({ data }: { data: DashboardData }) {
           <CardHeader className="border-b border-border/70"><CardTitle className="display-font flex items-center gap-2 text-xl"><Swords className="h-5 w-5 text-primary" /> Club comparison</CardTitle><CardDescription>Current table, long-run scoring profile, and recent form side by side.</CardDescription></CardHeader>
           <CardContent className="space-y-5 p-5 sm:p-7">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-              <TeamSelect teams={data.teams} value={teamA} other={teamB} onChange={setTeamA} />
+              <div className="flex min-w-0 items-center gap-2"><ClubCrest team={teamA} size="sm" /><TeamSelect teams={data.teams} value={teamA} other={teamB} onChange={setTeamA} /></div>
               <span className="mono-font text-[10px] text-muted-foreground">VS</span>
-              <TeamSelect teams={data.teams} value={teamB} other={teamA} onChange={setTeamB} />
+              <div className="flex min-w-0 items-center justify-end gap-2"><TeamSelect teams={data.teams} value={teamB} other={teamA} onChange={setTeamB} /><ClubCrest team={teamB} size="sm" /></div>
             </div>
             <TeamComparison data={data} first={teamA} second={teamB} />
             <div className="flex flex-wrap gap-2">
@@ -184,7 +186,7 @@ function PlayerSelect({ players, value, other, onChange }: { players: Array<Play
 
 function PlayerSummary({ player, tone }: { player?: PlayerProfile & { club: string }; tone: 'primary' | 'blue' }) {
   if (!player) return null;
-  return <div className={`rounded-2xl border p-3 ${tone === 'primary' ? 'border-primary/25 bg-primary/[0.05]' : 'border-blue-500/25 bg-blue-500/[0.05]'}`}><div className="flex items-center gap-2"><div className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold ${tone === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-blue-600 text-white'}`}>{player.overallRating}</div><div className="min-w-0"><div className="truncate text-xs font-semibold">{player.commonName || player.name}</div><div className="truncate text-[9px] text-muted-foreground">{player.club} · {player.position}</div></div></div></div>;
+  return <div className={`rounded-2xl border p-3 ${tone === 'primary' ? 'border-primary/25 bg-primary/[0.05]' : 'border-blue-500/25 bg-blue-500/[0.05]'}`}><div className="flex items-center gap-2"><div className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold ${tone === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-blue-600 text-white'}`}>{player.overallRating}</div><div className="min-w-0"><div className="truncate text-xs font-semibold">{player.commonName || player.name}</div><div className="truncate text-[9px] text-muted-foreground">{player.club} · {getPositionLabel(player.position)}</div></div></div></div>;
 }
 
 function MiniStat({ label, value }: { label: string; value: number }) {

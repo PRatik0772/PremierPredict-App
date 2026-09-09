@@ -5,7 +5,10 @@ import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
-const rawPort = process.env.PORT ?? '5000';
+// Vite evaluates this config during both development and the static
+// production build. The publishing build does not need a listening port, so
+// keep a valid default for that phase while still honoring the workflow port.
+const rawPort = process.env.PORT ?? '23206';
 
 const port = Number(rawPort);
 
@@ -13,7 +16,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH ?? '/';
+const basePath = process.env.BASE_PATH ?? '/premierpredict/';
 
 export default defineConfig({
   base: basePath,
