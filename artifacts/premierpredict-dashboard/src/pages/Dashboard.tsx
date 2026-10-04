@@ -38,12 +38,15 @@ import {
   YAxis,
 } from 'recharts';
 import { useLocation } from 'wouter';
+import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { useDashboardData, type DashboardData, type ModelMetric, type PlayerProfile } from '@/hooks/use-dashboard-data';
 import { ExploreWorkbench } from '@/components/ExploreWorkbench';
 import { ClubCrest } from '@/components/ClubCrest';
 import { ClubFormation } from '@/components/ClubFormation';
 import { ModelInsightPanel } from '@/components/ModelInsightPanel';
-import { PredictionIntelligence } from '@/components/PredictionIntelligence';
+import { PlayerRatingScenario } from '@/components/PlayerRatingScenario';
+import { getPositionLabel } from '@/lib/positions';
+import { generateMatchReportPdf } from '@/lib/match-report-pdf';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,15 +54,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { generateMatchReportPdf } from '@/lib/match-report-pdf';
-import { getPositionLabel } from '@/lib/positions';
 
 const CHART_COLORS = {
   primary: 'hsl(var(--chart-1))',
   accent: 'hsl(var(--chart-2))',
   blue: 'hsl(var(--chart-3))',
   slate: 'hsl(var(--chart-4))',
-  orange: 'hsl(var(--chart-5))',
 };
 
 const tabs = [
@@ -74,24 +74,6 @@ const outcomeInfo: Record<string, { label: string; short: string; color: string 
   H: { label: 'Home win', short: 'Home team wins', color: CHART_COLORS.primary },
   D: { label: 'Draw', short: 'Both teams finish level', color: CHART_COLORS.accent },
   A: { label: 'Away win', short: 'Away team wins', color: CHART_COLORS.blue },
-};
-
-const modelInfo: Record<string, { title: string; description: string; bestFor: string }> = {
-  'Decision Tree': {
-    title: 'Decision Tree',
-    description: 'Follows a sequence of yes/no-style splits, such as recent form, previous standings, goals, and ratings.',
-    bestFor: 'Easy to explain: the most presentation-friendly model.',
-  },
-  'Logistic Regression': {
-    title: 'Logistic Regression',
-    description: 'Combines the input features into weighted evidence for each possible result.',
-    bestFor: 'A simple, transparent baseline for comparison.',
-  },
-  'Random Forest': {
-    title: 'Random Forest',
-    description: 'Combines many decision trees so one unusual split has less influence on the final result.',
-    bestFor: 'A stronger ensemble comparison model.',
-  },
 };
 
 export default function Dashboard() {
@@ -147,21 +129,19 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-sidebar text-sidebar-foreground lg:flex">
+       <aside className="sidebar-shell fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col text-sidebar-foreground lg:flex">
         <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-6">
-          <img
-            src={`${import.meta.env.BASE_URL}premierpredict-mark.png`}
-            alt=""
-            className="h-10 w-10 shrink-0 object-contain"
-          />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
+            <Trophy className="h-4 w-4" />
+          </div>
           <div>
             <div className="display-font text-[17px] font-semibold tracking-tight">PremierPredict</div>
-            <div className="mono-font text-[9px] uppercase tracking-[0.22em] text-sidebar-foreground/55">Research desk</div>
+            <div className="mono-font text-[9px] uppercase tracking-[0.22em] text-sidebar-foreground/55">College project</div>
           </div>
         </div>
 
         <div className="flex flex-1 flex-col px-3 py-7">
-          <p className="mono-font px-3 text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/45">Workspace</p>
+          <p className="mono-font px-3 text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/45">Dashboard</p>
           <nav className="mt-3 space-y-1" aria-label="Dashboard sections">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -186,15 +166,15 @@ export default function Dashboard() {
           <div className="mt-auto rounded-xl border border-sidebar-border bg-sidebar-accent/55 p-4">
             <div className="flex items-center gap-2 text-xs font-medium">
               <ShieldCheck className="h-4 w-4 text-sidebar-primary" />
-              Evidence pinned
+              Project data
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-sidebar-foreground/55">A presentation-ready view of the reproducible research dataset.</p>
+            <p className="mt-2 text-xs leading-relaxed text-sidebar-foreground/55">Premier League match outcome prediction.</p>
           </div>
         </div>
 
         <div className="border-t border-sidebar-border px-6 py-4">
           <div className="mono-font text-[10px] uppercase tracking-[0.16em] text-sidebar-foreground/45">Premier League</div>
-          <div className="mt-1 text-xs text-sidebar-foreground/65">Outcome intelligence · v1</div>
+          <div className="mt-1 text-xs text-sidebar-foreground/65">Match prediction</div>
         </div>
       </aside>
 
@@ -202,19 +182,15 @@ export default function Dashboard() {
         <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
           <div className="mx-auto flex min-h-20 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8">
             <div className="flex items-center gap-3 lg:hidden">
-              <img
-                src={`${import.meta.env.BASE_URL}premierpredict-mark.png`}
-                alt=""
-                className="h-10 w-10 shrink-0 object-contain"
-              />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Trophy className="h-4 w-4" /></div>
               <div>
                 <div className="display-font text-base font-semibold">PremierPredict</div>
-                <div className="mono-font text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Research desk</div>
+                <div className="mono-font text-[9px] uppercase tracking-[0.2em] text-muted-foreground">College project</div>
               </div>
             </div>
             <div className="hidden lg:block">
-              <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-muted-foreground">University data science presentation</p>
-              <p className="mt-1 text-xs text-muted-foreground">Match intelligence desk <span className="mx-1.5 text-border">/</span> local evidence view</p>
+              <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Premier League match prediction</p>
+              <p className="mt-1 text-xs text-muted-foreground">College project <span className="mx-1.5 text-border">/</span> local data</p>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => exportDashboardReport(data, selectedModel, homeTeam, awayTeam)} className="hidden gap-2 rounded-full sm:flex" data-testid="button-export-report"><Download className="h-3.5 w-3.5" /> Export</Button>
@@ -437,6 +413,10 @@ function PredictionTab({ data, selectedModel, setSelectedModel, homeTeam, setHom
                 <SelectTrigger id="model-select" data-testid="select-model" className="h-11 bg-background"><SelectValue placeholder="Select a model" /></SelectTrigger>
                   <SelectContent>{data.metrics.map((metric) => <SelectItem key={metric.model} value={metric.model} data-testid={`option-model-${metric.model}`}>{metric.model}</SelectItem>)}</SelectContent>
                 </Select>
+                <div className="flex flex-wrap gap-1.5" aria-label="Available prediction models">
+                  {data.metrics.map((metric) => <Button key={metric.model} type="button" size="sm" variant={selectedModel === metric.model ? 'default' : 'outline'} onClick={() => setSelectedModel(metric.model)} data-testid={`button-model-${metric.model}`} className="h-auto px-2 py-1 text-[10px]">{metric.model}</Button>)}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Changing the model updates this fixture's prediction.</p>
                 {selectedMetric && <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"><Check className="h-3.5 w-3.5 shrink-0 text-primary" /> Test accuracy: <strong className="text-foreground">{(selectedMetric.accuracy * 100).toFixed(1)}%</strong></div>}
               </div>
 
@@ -522,6 +502,7 @@ function PredictionTab({ data, selectedModel, setSelectedModel, homeTeam, setHom
                   ))}
                 </div>
                 <ModelInsightPanel data={data} model={selectedModel} prediction={prediction} homeTeam={homeTeam} awayTeam={awayTeam} />
+                <PlayerRatingScenario key={`${homeTeam}|||${awayTeam}|||${data.inferenceArtifact.sha256}`} data={data} model={selectedModel} homeTeam={homeTeam} awayTeam={awayTeam} />
               </div>
             ) : (
               <EmptyState title="No stored prediction for this fixture" detail="Try another team pairing or model. This view never fills gaps with an invented estimate." large />
@@ -786,7 +767,7 @@ function SquadPanel({ club, players, side, compact = false }: { club: string; pl
           </div>
         </div>
         <div className="relative mt-4 flex items-center gap-3 rounded-2xl border border-white/35 bg-card/75 p-3 backdrop-blur">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/25 text-accent-foreground"><UserRound className="h-5 w-5" /></div>
+          <PlayerAvatar player={topPlayer} className="h-10 w-10 bg-accent/25" />
           <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{topPlayer.commonName || topPlayer.name}</div><div className="text-[10px] text-muted-foreground">Highest-rated player · {getPositionLabel(topPlayer.position)}</div></div>
           <div className="mono-font text-sm font-semibold text-primary">{topPlayer.overallRating}</div>
         </div>
@@ -798,7 +779,7 @@ function SquadPanel({ club, players, side, compact = false }: { club: string; pl
             <button type="button" key={player.id} onClick={() => navigate(`/player/${player.id}`)} data-testid={`player-${player.id}`} className="group grid w-full grid-cols-[30px_minmax(0,1fr)_42px] items-center gap-3 rounded-2xl border border-border/70 bg-card px-3 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/[0.035] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <div className="mono-font text-center text-[10px] text-muted-foreground">{String(index + 1).padStart(2, '0')}</div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2"><span className="truncate text-xs font-semibold sm:text-sm">{player.commonName || player.name}</span><Badge variant="outline" className="h-auto min-h-5 shrink-0 px-1.5 py-1 text-[8px] leading-tight">{getPositionLabel(player.position)}</Badge></div>
+                <div className="flex items-center gap-2"><PlayerAvatar player={player} className="h-8 w-8" /><span className="truncate text-xs font-semibold sm:text-sm">{player.commonName || player.name}</span><Badge variant="outline" className="h-auto min-h-5 shrink-0 px-1.5 py-1 text-[8px] leading-tight">{getPositionLabel(player.position)}</Badge></div>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   <PlayerAttribute label="PAC" value={player.pace} />
                   <PlayerAttribute label="PAS" value={player.passing} />
@@ -845,27 +826,9 @@ function ModelProfile({ model }: { model: string }) {
 }
 
 function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: DashboardData; selectedModel: string; setSelectedModel: (value: string) => void }) {
-  const sortedMetrics = useMemo(() => {
-    const outcomes = ['H', 'D', 'A'];
-    return data.metrics.map((metric) => {
-      const modelClasses = data.classMetrics[metric.model] || [];
-      const macroAverage = (key: 'precision' | 'recall') => {
-        const scores = outcomes.map((outcome) => modelClasses.find((classMetric) => classMetric.outcome === outcome)?.[key]);
-        return scores.every((score): score is number => typeof score === 'number')
-          ? scores.reduce((sum, score) => sum + score, 0) / scores.length
-          : null;
-      };
-      return { ...metric, macroPrecision: macroAverage('precision'), macroRecall: macroAverage('recall') };
-    }).sort((a, b) => b.accuracy - a.accuracy);
-  }, [data.classMetrics, data.metrics]);
-  const chartData = sortedMetrics.map((metric) => ({
-    name: metric.model,
-    Accuracy: Number((metric.accuracy * 100).toFixed(1)),
-    'Macro precision': metric.macroPrecision === null ? null : Number((metric.macroPrecision * 100).toFixed(1)),
-    'Macro recall': metric.macroRecall === null ? null : Number((metric.macroRecall * 100).toFixed(1)),
-    'Macro F1': Number((metric.macroF1 * 100).toFixed(1)),
-    'Draw F1': Number((metric.drawF1 * 100).toFixed(1)),
-  }));
+  const sortedMetrics = useMemo(() => [...data.metrics].sort((a, b) => b.accuracy - a.accuracy), [data.metrics]);
+  const evaluation = data.evaluationSummary;
+  const chartData = sortedMetrics.map((metric) => ({ name: metric.model, Accuracy: Number((metric.accuracy * 100).toFixed(1)), 'Draw F1': Number((metric.drawF1 * 100).toFixed(1)) }));
   const featureData = (data.featureImportance[selectedModel] || []).slice(0, 10).map((item) => ({
     feature: readableFeature(item.feature),
     importance: Number((item.importance * 100).toFixed(1)),
@@ -879,8 +842,8 @@ function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: Dashbo
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-primary">Evaluation / held-out performance</p>
-          <h2 className="display-font mt-2 text-3xl font-semibold tracking-[-0.03em]">Know what the models get right.</h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Compare headline scores, class-level behavior, feature influence, and the exact prediction errors made on unseen matches.</p>
+          <h2 className="display-font mt-2 text-3xl font-semibold tracking-[-0.03em]">Evaluate on unseen seasons.</h2>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">All {data.metrics.length} models use the same 2023–2025 test matches. Compare headline scores, per-outcome results, feature influence, and prediction errors.</p>
         </div>
         <div className="w-full sm:w-[280px]">
           <label htmlFor="evaluation-model-select" className="mb-2 block text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Inspect model</label>
@@ -891,13 +854,41 @@ function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: Dashbo
         </div>
       </div>
 
+      <Card className="overflow-hidden rounded-3xl">
+        <CardHeader className="border-b border-border/70 pb-5">
+          <CardTitle className="display-font text-xl">Dataset and baseline</CardTitle>
+          <CardDescription className="mt-1">A chronological split keeps the held-out seasons out of model fitting.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5 p-5 sm:p-7">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: 'Valid unique matches', value: evaluation.validUniqueMatches.toLocaleString() },
+              { label: 'Training · 2008–2022', value: evaluation.trainMatches.toLocaleString() },
+              { label: 'Held out · 2023–2025', value: evaluation.testMatches.toLocaleString() },
+              { label: 'Training-majority baseline', value: `${(evaluation.holdoutMajorityBaselineAccuracy * 100).toFixed(1)}%` },
+            ].map((item) => <div key={item.label} className="rounded-2xl border border-border bg-card p-4"><div className="mono-font text-xl font-semibold">{item.value}</div><div className="mt-1 text-xs text-muted-foreground">{item.label}</div></div>)}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(['H', 'D', 'A'] as const).map((outcome) => <div key={outcome} className="flex items-center justify-between rounded-xl bg-muted/45 px-4 py-3 text-sm">
+              <span className="font-medium">{outcomeInfo[outcome]?.label || outcome}</span>
+              <span className="mono-font text-xs text-muted-foreground">{evaluation.outcomeCounts.all[outcome].toLocaleString()} total · {evaluation.outcomeCounts.test[outcome].toLocaleString()} test</span>
+            </div>)}
+          </div>
+          <div className="space-y-2 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-xs leading-relaxed text-muted-foreground">
+            <p>The comparable holdout baseline always predicts the training-majority outcome ({outcomeInfo[evaluation.trainingMajorityOutcome]?.label || evaluation.trainingMajorityOutcome}): <strong className="text-foreground">{(evaluation.holdoutMajorityBaselineAccuracy * 100).toFixed(2)}%</strong>.</p>
+            <p>The <strong className="text-foreground">{(evaluation.datasetMajorityBaselineAccuracy * 100).toFixed(2)}%</strong> full-dataset majority figure is outcome prevalence, not a holdout benchmark.</p>
+            <p>Season-matched player ratings cover {evaluation.ratedMatchCount.toLocaleString()} matches from 2015 onward, including all {evaluation.ratedTestMatchCount.toLocaleString()} test matches. Ratings for 2008–2014 are missing—not zero—and each model fits median imputation on training rows only.</p>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="overflow-hidden">
         <CardHeader className="flex-row items-start justify-between space-y-0 border-b border-border/70 pb-5">
-          <div><CardTitle className="display-font text-xl">Model comparison</CardTitle><CardDescription className="mt-1">Accuracy, macro precision, macro recall, macro F1, and draw F1. Macro scores weight Home, Draw, and Away equally.</CardDescription></div>
+          <div><CardTitle className="display-font text-xl">Model comparison</CardTitle><CardDescription className="mt-1">Accuracy against draw detection capability.</CardDescription></div>
           <Badge variant="outline" className="hidden gap-1.5 text-[10px] sm:flex"><Info className="h-3 w-3" /> Percent</Badge>
         </CardHeader>
         <CardContent className="p-5 pt-7 sm:p-7">
-          {chartData.length ? <div className="h-[360px] sm:h-[410px]" data-testid="chart-model-comparison">
+          {chartData.length ? <div className="h-[310px] sm:h-[360px]" data-testid="chart-model-comparison">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 15, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="2 5" vertical={false} stroke="hsl(var(--border))" />
@@ -906,9 +897,6 @@ function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: Dashbo
                 <Tooltip cursor={{ fill: 'hsl(var(--muted) / .55)' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '10px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} formatter={(value: number) => [`${value}%`]} />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '14px' }} />
                 <Bar dataKey="Accuracy" fill={CHART_COLORS.primary} radius={[4, 4, 1, 1]} isAnimationActive={false} />
-                <Bar dataKey="Macro precision" fill={CHART_COLORS.blue} radius={[4, 4, 1, 1]} isAnimationActive={false} />
-                <Bar dataKey="Macro recall" fill={CHART_COLORS.slate} radius={[4, 4, 1, 1]} isAnimationActive={false} />
-                <Bar dataKey="Macro F1" fill={CHART_COLORS.orange} radius={[4, 4, 1, 1]} isAnimationActive={false} />
                 <Bar dataKey="Draw F1" fill={CHART_COLORS.accent} radius={[4, 4, 1, 1]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
@@ -973,18 +961,17 @@ function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: Dashbo
       </Card>
 
       <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border/70 pb-5"><CardTitle className="display-font text-xl">Performance metrics</CardTitle><CardDescription className="mt-1">Macro precision, recall, and F1 give equal weight to Home, Draw, and Away outcomes.</CardDescription></CardHeader>
+        <CardHeader className="border-b border-border/70 pb-5"><CardTitle className="display-font text-xl">Performance metrics</CardTitle><CardDescription className="mt-1">All models on the same held-out matches. Macro F1 and macro precision give home wins, draws, and away wins equal weight.</CardDescription></CardHeader>
         <CardContent className="p-0">
           {sortedMetrics.length ? <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm" data-testid="table-performance-metrics">
-              <thead><tr className="border-b border-border/70 bg-muted/45 text-left text-[10px] uppercase tracking-[0.11em] text-muted-foreground"><th className="px-5 py-4 font-semibold">Model architecture</th><th className="px-5 py-4 font-semibold">Overall accuracy</th><th className="px-5 py-4 font-semibold">Macro precision</th><th className="px-5 py-4 font-semibold">Macro recall</th><th className="px-5 py-4 font-semibold">Macro F1</th><th className="px-5 py-4 font-semibold">Draw F1</th></tr></thead>
+            <table className="w-full min-w-[620px] text-sm" data-testid="table-performance-metrics">
+              <thead><tr className="border-b border-border/70 bg-muted/45 text-left text-[10px] uppercase tracking-[0.11em] text-muted-foreground"><th className="px-5 py-4 font-semibold">Model architecture</th><th className="px-5 py-4 font-semibold">Overall accuracy</th><th className="px-5 py-4 font-semibold">Macro F1</th><th className="px-5 py-4 font-semibold">Macro precision</th><th className="px-5 py-4 font-semibold">Draw F1</th></tr></thead>
               <tbody className="divide-y divide-border/70">
                 {sortedMetrics.map((metric, index) => <tr key={metric.model} data-testid={`row-model-metric-${index}`} className="transition-colors hover:bg-muted/35">
                   <td className="px-5 py-4 font-semibold"><span className="flex items-center gap-2">{index === 0 && <Trophy className="h-3.5 w-3.5 text-accent" />}{metric.model}{index === 0 && <Badge className="ml-1 bg-primary/10 text-[10px] text-primary hover:bg-primary/10">Best accuracy</Badge>}</span></td>
                   <td className="mono-font px-5 py-4">{(metric.accuracy * 100).toFixed(1)}%</td>
-                  <td className="mono-font px-5 py-4 text-muted-foreground">{metric.macroPrecision === null ? '—' : `${(metric.macroPrecision * 100).toFixed(1)}%`}</td>
-                  <td className="mono-font px-5 py-4 text-muted-foreground">{metric.macroRecall === null ? '—' : `${(metric.macroRecall * 100).toFixed(1)}%`}</td>
                   <td className="mono-font px-5 py-4 text-muted-foreground">{(metric.macroF1 * 100).toFixed(1)}%</td>
+                  <td className="mono-font px-5 py-4 text-muted-foreground">{(metric.macroPrecision * 100).toFixed(1)}%</td>
                   <td className="px-5 py-4"><span className={`mono-font rounded-md px-2 py-1 text-xs ${metric.drawF1 > 0.3 ? 'bg-accent/20 text-accent-foreground' : 'bg-muted text-muted-foreground'}`}>{(metric.drawF1 * 100).toFixed(1)}%</span></td>
                 </tr>)}
               </tbody>
@@ -1014,6 +1001,8 @@ function ProvenanceCard({ provenance, compact = false }: { provenance: Dashboard
         <div><div className="mono-font text-[10px] uppercase tracking-[0.13em] text-muted-foreground">Source commit</div><div data-testid="text-provenance-commit" className="mono-font mt-2 flex items-center gap-2"><GitCommitHorizontal className="h-3.5 w-3.5 text-muted-foreground" />{provenance.source_commit.slice(0, 10)}</div></div>
         <div><div className="mono-font text-[10px] uppercase tracking-[0.13em] text-muted-foreground">Feature contract</div><div data-testid="text-provenance-feature-contract" className="mt-2 leading-relaxed">{provenance.feature_contract}</div></div>
         <div><div className="mono-font text-[10px] uppercase tracking-[0.13em] text-muted-foreground">Standings source</div><div data-testid="text-provenance-standings" className="mt-2 leading-relaxed">{provenance.historical_standings_source}</div></div>
+        <div><div className="mono-font text-[10px] uppercase tracking-[0.13em] text-muted-foreground">Season-specific ratings</div><div data-testid="text-provenance-ratings-source" className="mt-2 break-words leading-relaxed">{provenance.ratings_source}</div></div>
+        <div><div className="mono-font text-[10px] uppercase tracking-[0.13em] text-muted-foreground">Rating timing and missing values</div><div data-testid="text-provenance-ratings-method" className="mt-2 leading-relaxed">{provenance.ratings_method}</div></div>
       </CardContent>
     </Card>
   );

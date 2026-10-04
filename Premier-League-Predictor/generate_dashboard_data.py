@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from model_pipeline import RATINGS_PATH, build_prediction_features, train_models
+from model_pipeline import MODEL_FEATURE_COLUMNS, PLAYER_RATINGS_PATH, build_prediction_features, train_models
+from dashboard_contract import write_dashboard_payload
+from browser_models import export_browser_models
 
 OUT = Path(__file__).parents[1] / "artifacts/premierpredict-dashboard/public/data/premierpredict.json"
 
@@ -54,43 +57,38 @@ def _season_trends(matches):
     return rows
 
 
-def _players_by_club():
-    ratings = pd.read_excel(RATINGS_PATH).copy()
-    mapping = {
-        "Man Utd": "Manchester United",
-        "Newcastle Utd": "Newcastle United",
-        "Spurs": "Tottenham Hotspur",
-        "West Ham": "West Ham United",
-        "Wolves": "Wolverhampton Wanderers",
-        "Nott'm Forest": "Nottingham Forest",
-        "AFC Bournemouth": "Bournemouth",
-        "Brighton": "Brighton and Hove Albion",
-    }
-    ratings["clubName"] = ratings["clubName"].replace(mapping)
+def _players_by_club(latest_season):
+    ratings = pd.read_csv(PLAYER_RATINGS_PATH)
+    ratings = ratings[ratings.season == latest_season].copy()
+    if ratings.empty:
+        raise ValueError(f"No player-level ratings are available for latest season {latest_season}.")
     fields = [
-        "id", "playerName", "commonName", "clubName", "position",
-        "overallRating", "pace", "shooting", "passing", "dribbling",
-        "defending", "physical", "preferredFoot", "skillMoves",
+        "player_id", "player_name", "common_name", "team_name", "position",
+        "overall_rating", "pace", "shooting", "passing", "dribbling",
+        "defending", "physical", "preferred_foot", "skill_moves",
     ]
+    missing = set(fields) - set(ratings.columns)
+    if missing:
+        raise ValueError(f"Seasonal player ratings are missing columns: {sorted(missing)}")
     ratings = ratings[fields]
     clubs = {}
-    for club, group in ratings.groupby("clubName", sort=True):
+    for club, group in ratings.groupby("team_name", sort=True):
         players = []
-        for row in group.sort_values(["overallRating", "playerName"], ascending=[False, True]).to_dict("records"):
+        for row in group.sort_values(["overall_rating", "player_name"], ascending=[False, True]).to_dict("records"):
             players.append({
-                "id": int(row["id"]),
-                "name": row["playerName"],
-                "commonName": None if pd.isna(row["commonName"]) else row["commonName"],
+                "id": int(row["player_id"]),
+                "name": row["player_name"],
+                "commonName": None if pd.isna(row["common_name"]) else row["common_name"],
                 "position": row["position"],
-                "overallRating": int(row["overallRating"]),
+                "overallRating": int(row["overall_rating"]),
                 "pace": int(row["pace"]),
                 "shooting": int(row["shooting"]),
                 "passing": int(row["passing"]),
                 "dribbling": int(row["dribbling"]),
                 "defending": int(row["defending"]),
                 "physical": int(row["physical"]),
-                "preferredFoot": row["preferredFoot"],
-                "skillMoves": int(row["skillMoves"]),
+                "preferredFoot": row["preferred_foot"],
+                "skillMoves": int(row["skill_moves"]),
             })
         clubs[club] = players
     return clubs
@@ -238,15 +236,20 @@ def _feature_importance(bundle):
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
+    "--history-source", choices=["matches", "snowflake"], default="matches",
+    help="Use reconstructed prior-season match standings (default) or explicitly query Snowflake.",
+)
+parser.add_argument(
     "--regenerate-predictions",
     action="store_true",
-    help="Recompute every ordered team pairing. This is intentionally opt-in because it is slow.",
+    help="Retained for compatibility. All predictions are now regenerated in batches on every run.",
 )
 args = parser.parse_args()
 
-b = train_models()
-existing = json.loads(OUT.read_text()) if OUT.exists() else {}
+b = train_models(history_source=args.history_source)
 payload = {
+    "schemaVersion": 5,
+    "featureNames": MODEL_FEATURE_COLUMNS,
     "totalMatches": len(b.matches),
     "featureCount": len(b.features.columns),
     "latestSeason": b.latest_season,
@@ -254,9 +257,16 @@ payload = {
     "testSeasons": "2023–2025",
     "teams": b.teams,
     "metrics": [
-        {"model": r["Model"], "accuracy": r["Accuracy"], "macroF1": r["Macro F1"], "drawF1": r["Draw F1"]}
+        {
+            "model": r["Model"],
+            "accuracy": r["Accuracy"],
+            "macroF1": r["Macro F1"],
+            "macroPrecision": r["Macro Precision"],
+            "drawF1": r["Draw F1"],
+        }
         for r in b.metrics.to_dict("records")
     ],
+    "evaluationSummary": b.evaluation_summary,
     "outcomeDistribution": [
         {"outcome": key, "matches": int(value)}
         for key, value in b.matches.result.value_counts().sort_index().items()
@@ -270,7 +280,7 @@ payload = {
     ],
     "provenance": b.provenance,
     "teamStats": _team_stats(b.matches, b.latest_season),
-    "playersByClub": _players_by_club(),
+    "playersByClub": _players_by_club(b.latest_season),
     "clubPerformance": _club_performance(b.matches),
     "formByClub": _recent_form(b.matches, b.teams),
     "headToHead": _head_to_head(b.matches, b.teams),
@@ -296,25 +306,37 @@ payload = {
         }
         for model, matrix in b.confusion_matrices.items()
     },
-    "predictions": existing.get("predictions", {}),
+    "predictions": {},
 }
-if args.regenerate_predictions:
-    payload["predictions"] = {}
-    for model_name, model in b.models.items():
-        payload["predictions"][model_name] = {}
-        for home in b.teams:
-            for away in b.teams:
-                if home == away:
-                    continue
-                x = build_prediction_features(b, home, away)
-                payload["predictions"][model_name][f"{home}|||{away}"] = {
-                    "predicted": model.predict(x)[0],
-                    "probabilities": [
-                        {"outcome": label, "probability": float(prob)}
-                        for label, prob in zip(model.classes_, model.predict_proba(x)[0])
-                    ],
-                }
-OUT.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n")
+pairs = [(home, away) for home in b.teams for away in b.teams if home != away]
+prediction_features = pd.concat(
+    [build_prediction_features(b, home, away) for home, away in pairs],
+    ignore_index=True,
+)
+payload["inferenceArtifact"] = export_browser_models(b, prediction_features, OUT.parent)
+for metric in payload["metrics"]:
+    if abs(metric["macroPrecision"] - float(b.reports[metric["model"]]["macro avg"]["precision"])) > 1e-12:
+        raise ValueError(f"{metric['model']} macro precision differs from its classification report.")
+payload["predictionInputs"] = {
+    f"{home}|||{away}": {key: float(value) for key, value in row.items()}
+    for (home, away), row in zip(pairs, prediction_features.to_dict("records"))
+}
+payload["provenance"]["generated_at"] = datetime.now(timezone.utc).isoformat()
+payload["provenance"]["prediction_as_of"] = b.matches.kickoff.max().isoformat()
+for model_name, model in b.models.items():
+    predicted = model.predict(prediction_features)
+    probabilities = model.predict_proba(prediction_features)
+    payload["predictions"][model_name] = {
+        f"{home}|||{away}": {
+            "predicted": predicted[index],
+            "probabilities": [
+                {"outcome": label, "probability": float(prob)}
+                for label, prob in zip(model.classes_, probabilities[index])
+            ],
+        }
+        for index, (home, away) in enumerate(pairs)
+    }
+write_dashboard_payload(payload, OUT)
 print(
     f"Wrote {OUT} with {len(b.features.columns)} model features and "
     f"{sum(len(items) for items in payload['predictions'].values())} stored predictions"

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { Heart, Search, Shield, Sparkles, Star, Swords, UserRound, UsersRound } from 'lucide-react';
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useLocation } from 'wouter';
@@ -88,7 +89,7 @@ export function ExploreWorkbench({ data }: { data: DashboardData }) {
               return <div key={player.id} className="group rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm">
                 <div className="flex items-start gap-3">
                   <button onClick={() => navigate(`/player/${player.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary">{player.overallRating}</div>
+                    <div className="relative shrink-0"><PlayerAvatar player={player} className="h-11 w-11 rounded-2xl" /><span className="absolute -bottom-1 -right-1 rounded-full bg-primary px-1.5 text-[9px] font-bold text-primary-foreground">{player.overallRating}</span></div>
                     <div className="min-w-0"><div className="truncate text-sm font-semibold">{player.commonName || player.name}</div><div className="mt-1 truncate text-[10px] text-muted-foreground">{player.club} · {getPositionLabel(player.position)}</div></div>
                   </button>
                   <Button variant="ghost" size="icon" onClick={() => persist({ ...favourites, players: favourite ? favourites.players.filter((id) => id !== player.id) : [...favourites.players, player.id] })} aria-label={`${favourite ? 'Remove' : 'Add'} ${player.name} ${favourite ? 'from' : 'to'} favourites`} className="h-9 w-9 rounded-full"><Heart className={`h-4 w-4 ${favourite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} /></Button>

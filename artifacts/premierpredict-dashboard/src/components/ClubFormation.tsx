@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, Shield, Sparkles } from 'lucide-react';
 import { type PlayerProfile } from '@/hooks/use-dashboard-data';
 import { ClubCrest } from '@/components/ClubCrest';
+import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -169,8 +170,9 @@ export function ClubFormation({ club, players }: { club: string; players: Player
                 className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
                 style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-primary-foreground shadow-lg sm:h-10 sm:w-10">
-                  {player?.overallRating || '—'}
+                <div className="relative">
+                  {player ? <PlayerAvatar player={player} className="h-9 w-9 border-2 border-white bg-white shadow-lg sm:h-10 sm:w-10" /> : <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary text-primary-foreground">—</div>}
+                  {player && <span className="absolute -bottom-1 -right-1 rounded-full bg-primary px-1 text-[8px] font-bold text-primary-foreground">{player.overallRating}</span>}
                 </div>
                 <div className="max-w-[72px] rounded-md bg-black/55 px-1.5 py-1 text-center text-[9px] font-semibold leading-tight text-white backdrop-blur-sm">
                   {player ? displayName(player) : 'Open slot'}

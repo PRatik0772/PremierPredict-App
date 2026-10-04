@@ -1,7 +1,7 @@
 kind = "data-app"
 previewPath = "/premierpredict/"
 title = "PremierPredict Dashboard"
-description = "An interactive English Premier League match outcome dashboard that compares Logistic Regression, Decision Tree, and Random Forest models, explores the historical dataset, and provides match outcome predictions."
+description = "An English Premier League dashboard comparing four trained models, including Gradient Boosting, with actual player-rating scenario inference and accuracy, macro F1, and macro precision evidence."
 version = "1.0.0"
 id = "artifacts/premierpredict-dashboard"
 router = "path"

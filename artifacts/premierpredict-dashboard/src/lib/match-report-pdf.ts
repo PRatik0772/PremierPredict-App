@@ -43,7 +43,7 @@ const modelDescriptions: Record<string, { summary: string; mechanics: string[] }
     ],
   },
   'Logistic Regression': {
-    summary: 'A weighted combination of the 37 inputs creates one score for each outcome, then normalises those scores into probabilities.',
+    summary: 'A weighted combination of the predictor inputs creates one score for each outcome, then normalises those scores into probabilities.',
     mechanics: [
       'Each input contributes positive or negative evidence to the home-win, draw, and away-win scores.',
       'The three scores are normalised together, so the displayed probabilities sum to 100%.',
@@ -56,6 +56,22 @@ const modelDescriptions: Record<string, { summary: string; mechanics: string[] }
       'Each tree sees a slightly different view of the training examples and candidate feature splits.',
       'Every tree votes for home win, draw, or away win.',
       'Averaging the trees reduces the effect of one unusual split and produces the ensemble output.',
+    ],
+  },
+  'Gradient Boosting': {
+    summary: 'Small trees are added sequentially to correct errors in the current ensemble.',
+    mechanics: [
+      'An initial estimate is refined by a sequence of shallow trees.',
+      'Each new tree targets errors left by the current training predictions.',
+      'The combined scores produce home, draw, and away probabilities using fixed dashboard settings.',
+    ],
+  },
+  'XGBoost': {
+    summary: 'A regularised ensemble trained by the XGBoost library, separate from scikit-learn Gradient Boosting.',
+    mechanics: [
+      'Successive trees improve multiclass loss on the training period only.',
+      'Row sampling, feature sampling, and regularisation constrain the ensemble.',
+      'The trained class scores are normalised into home, draw, and away probabilities.',
     ],
   },
 };
@@ -246,6 +262,27 @@ export function generateMatchReportPdf(data: DashboardData, selectedModel: strin
   } else {
     text('No feature influence values are available for this model.', 9, COLORS.muted);
   }
+
+  section('Exact prediction inputs', 'Actual feature values passed to the models for this stored fixture, not local feature contributions.');
+  const inputs = data.predictionInputs[`${homeTeam}|||${awayTeam}`];
+  if (inputs) {
+    const widths = [CONTENT_WIDTH * 0.78, CONTENT_WIDTH * 0.22];
+    tableRow(['Input', 'Raw value'], widths, true);
+    data.featureNames.forEach((feature) => {
+      if (y + 7 > PAGE_HEIGHT - 20) {
+        newPage();
+        tableRow(['Input (continued)', 'Raw value'], widths, true);
+      }
+      tableRow([friendlyFeatureName(feature), String(Number(inputs[feature].toFixed(6)))], widths);
+    });
+    y += 5;
+  } else {
+    text('Exact input values are unavailable.', 9, COLORS.muted);
+  }
+  text(`Match history through: ${data.provenance?.prediction_as_of || 'Unavailable'}`, 8, COLORS.muted);
+  text(`Evidence generated: ${data.provenance?.generated_at || 'Unavailable'}`, 8, COLORS.muted);
+  text(`Standings source: ${data.provenance?.historical_standings_source || 'Unavailable'}`, 8, COLORS.muted);
+  text(`Model configuration: ${data.provenance?.model_configuration || 'Unavailable'}`, 8, COLORS.muted);
 
   section('Class-level performance', 'Precision, recall, and F1 are measured on held-out matches from the evaluation seasons.');
   if (classMetrics.length) {

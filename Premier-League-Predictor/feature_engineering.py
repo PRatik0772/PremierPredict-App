@@ -194,6 +194,73 @@ home_history = home_history.rename(columns={
     "previous_goal_difference": "home_previous_goal_difference"
 })
 
+def add_current_season_points(df):
+
+    df = df.sort_values("kickoff").copy()
+
+    team_points = {}
+
+    home_current_points = []
+    away_current_points = []
+
+    for _, row in df.iterrows():
+
+        season = row["season"]
+        home_team = row["homeTeam_id"]
+        away_team = row["awayTeam_id"]
+
+        home_key = (season, home_team)
+        away_key = (season, away_team)
+
+        # Points BEFORE the current match
+        home_points = team_points.get(home_key, 0)
+        away_points = team_points.get(away_key, 0)
+
+        home_current_points.append(home_points)
+        away_current_points.append(away_points)
+
+        # Update points AFTER the match
+        if row["match_result"] == "H":
+            team_points[home_key] = home_points + 3
+            team_points[away_key] = away_points
+
+        elif row["match_result"] == "A":
+            team_points[home_key] = home_points
+            team_points[away_key] = away_points + 3
+
+        else:
+            team_points[home_key] = home_points + 1
+            team_points[away_key] = away_points + 1
+
+    df["home_current_points"] = home_current_points
+    df["away_current_points"] = away_current_points
+
+    return df
+
+epl_results = add_current_season_points(epl_results)
+
+print(epl_results[[
+    "season",
+    "kickoff",
+    "homeTeam_name",
+    "awayTeam_name",
+    "home_current_points",
+    "away_current_points"
+]].head(10))
+
+epl_results["current_points_diff"] = (
+    epl_results["home_current_points"]
+    - epl_results["away_current_points"]
+)
+
+print(epl_results[[
+    "homeTeam_name",
+    "awayTeam_name",
+    "home_current_points",
+    "away_current_points",
+    "current_points_diff"
+]].head(15))
+
 # merging all the records based on the year for every team
 # this is done since our records has multiple tables based on match location i.e home, away and overall
 epl_features = epl_results.merge(
@@ -201,6 +268,12 @@ epl_features = epl_results.merge(
     on=["season", "homeTeam_id"],
     how="left"
 )
+
+print(epl_features[[
+    "home_current_points",
+    "away_current_points",
+    "current_points_diff"
+]].head(10))
 
 away_history = historical_features[
     [
@@ -1160,6 +1233,9 @@ ml_features = epl_features[
         "away_recent_goals_conceded",
         "recent_goals_scored_diff",
         "recent_goals_conceded_diff",
+        "home_current_points",
+        "away_current_points",
+        "current_points_diff",
 
         # Target
         "match_result"
@@ -1529,3 +1605,239 @@ print(
         target_names=label_encoder.classes_
     )
 )
+
+
+from model_tuning import tune_logistic_regression
+
+logistic_study, best_logistic = tune_logistic_regression(
+    X_train_scaled,
+    y_train
+)
+
+print("\nBest Logistic Regression Parameters:")
+print(logistic_study.best_params)
+
+print("\nBest Logistic Regression CV F1 Score:")
+print(logistic_study.best_value)
+
+
+from model_tuning import tune_decision_tree
+
+decision_tree_study, best_decision_tree = tune_decision_tree(
+    X_train,
+    y_train
+)
+
+print("\nBest Decision Tree Parameters:")
+print(decision_tree_study.best_params)
+
+print("\nBest Decision Tree CV F1 Score:")
+print(decision_tree_study.best_value)
+
+
+from model_tuning import tune_random_forest
+
+random_forest_study, best_random_forest = tune_random_forest(
+    X_train,
+    y_train
+)
+
+print("\nBest Random Forest Parameters:")
+print(random_forest_study.best_params)
+
+print("\nBest Random Forest CV F1 Score:")
+print(random_forest_study.best_value)
+
+
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+
+# # ============================================================
+# # FINAL EVALUATION OF TUNED MODELS
+# # ============================================================
+
+# # Best Logistic Regression model
+# best_logistic = logistic_study.best_params
+
+# # Best Decision Tree model
+# best_decision_tree = decision_tree_study.best_params
+
+# # Best Random Forest model
+# best_random_forest = random_forest_study.best_params
+
+
+# # ----------------------------
+# # Logistic Regression
+# # ----------------------------
+
+logistic_pred = best_logistic.predict(X_test_scaled)
+
+print("\n" + "=" * 60)
+print("TUNED LOGISTIC REGRESSION - TEST RESULTS")
+print("=" * 60)
+
+print("\nAccuracy:")
+print(accuracy_score(y_test, logistic_pred))
+
+print("\nClassification Report:")
+print(classification_report(
+    y_test,
+    logistic_pred,
+    target_names=label_encoder.classes_
+))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, logistic_pred))
+
+
+# ----------------------------
+# Decision Tree
+# ----------------------------
+
+decision_tree_pred = best_decision_tree.predict(X_test)
+
+print("\n" + "=" * 60)
+print("TUNED DECISION TREE - TEST RESULTS")
+print("=" * 60)
+
+print("\nAccuracy:")
+print(accuracy_score(y_test, decision_tree_pred))
+
+print("\nClassification Report:")
+print(classification_report(
+    y_test,
+    decision_tree_pred,
+    target_names=label_encoder.classes_
+))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, decision_tree_pred))
+
+
+# ----------------------------
+# Random Forest
+# ----------------------------
+
+random_forest_pred = best_random_forest.predict(X_test)
+
+print("\n" + "=" * 60)
+print("TUNED RANDOM FOREST - TEST RESULTS")
+print("=" * 60)
+
+print("\nAccuracy:")
+print(accuracy_score(y_test, random_forest_pred))
+
+print("\nClassification Report:")
+print(classification_report(
+    y_test,
+    random_forest_pred,
+    target_names=label_encoder.classes_
+))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, random_forest_pred))
+
+
+
+from model_tuning import (
+    tune_logistic_regression,
+    tune_decision_tree,
+    tune_random_forest,
+    tune_gradient_boosting
+)
+
+
+gradient_boosting_study, best_gradient_boosting = tune_gradient_boosting(
+    X_train,
+    y_train
+)
+
+
+gradient_boosting_pred = best_gradient_boosting.predict(X_test)
+
+print("\nGradient Boosting Results:")
+print("Accuracy:", accuracy_score(y_test, gradient_boosting_pred))
+
+print("\nClassification Report:")
+print(
+    classification_report(
+        y_test,
+        gradient_boosting_pred,
+        target_names=["A", "D", "H"]
+    )
+)
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, gradient_boosting_pred))
+
+
+# ----------------------------
+# Model Comparison
+# ----------------------------
+
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import matplotlib.pyplot as plt
+import numpy as np
+
+models = [
+    "Logistic Regression",
+    "Decision Tree",
+    "Random Forest",
+    "Gradient Boosting"
+]
+
+accuracy = [
+    accuracy_score(y_test, logistic_pred),
+    accuracy_score(y_test, decision_tree_pred),
+    accuracy_score(y_test, random_forest_pred),
+    accuracy_score(y_test, gradient_boosting_pred)
+]
+
+precision = [
+    precision_score(y_test, logistic_pred, average="weighted", zero_division=0),
+    precision_score(y_test, decision_tree_pred, average="weighted", zero_division=0),
+    precision_score(y_test, random_forest_pred, average="weighted", zero_division=0),
+    precision_score(y_test, gradient_boosting_pred, average="weighted", zero_division=0)
+]
+
+recall = [
+    recall_score(y_test, logistic_pred, average="weighted", zero_division=0),
+    recall_score(y_test, decision_tree_pred, average="weighted", zero_division=0),
+    recall_score(y_test, random_forest_pred, average="weighted", zero_division=0),
+    recall_score(y_test, gradient_boosting_pred, average="weighted", zero_division=0)
+]
+
+f1 = [
+    f1_score(y_test, logistic_pred, average="weighted", zero_division=0),
+    f1_score(y_test, decision_tree_pred, average="weighted", zero_division=0),
+    f1_score(y_test, random_forest_pred, average="weighted", zero_division=0),
+    f1_score(y_test, gradient_boosting_pred, average="weighted", zero_division=0)
+]
+
+x = np.arange(len(models))
+width = 0.2
+
+plt.figure(figsize=(12, 6))
+
+plt.bar(x - 1.5 * width, accuracy, width, label="Accuracy")
+plt.bar(x - 0.5 * width, precision, width, label="Precision")
+plt.bar(x + 0.5 * width, recall, width, label="Recall")
+plt.bar(x + 1.5 * width, f1, width, label="F1-score")
+
+plt.xlabel("Models")
+plt.ylabel("Score")
+plt.title("Model Performance Comparison")
+plt.xticks(x, models)
+plt.ylim(0, 1)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+import joblib
+
+joblib.dump(
+    best_gradient_boosting,
+    "gradient_boosting_model.pkl"
+)
+
+print("Gradient Boosting model saved successfully.")

@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboardData, type PlayerProfile as Player } from '@/hooks/use-dashboard-data';
 import { getPositionLabel } from '@/lib/positions';
+import { PlayerAvatar, getPlayerPortrait } from '@/components/PlayerAvatar';
 
 const ratingDetails = [
   { key: 'pace', label: 'Pace', icon: Footprints, color: 'bg-blue-500' },
@@ -80,15 +81,18 @@ export default function PlayerProfilePage() {
           <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border-[44px] border-primary/[0.07]" />
           <div className="relative flex flex-col justify-between gap-7 md:flex-row md:items-end">
             <div className="flex items-center gap-5">
-              <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-[1.75rem] bg-primary text-primary-foreground shadow-xl shadow-primary/20">
-                <span className="display-font text-4xl font-semibold">{player.overallRating}</span>
-                <span className="text-[9px] uppercase tracking-[0.16em]">Overall</span>
+              <div className="relative shrink-0">
+                <PlayerAvatar player={player} className="h-24 w-24 rounded-[1.75rem] bg-card shadow-xl shadow-primary/20" />
+                <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">{player.overallRating} OVR</span>
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2"><Badge>{getPositionLabel(player.position)}</Badge><Badge variant="outline">#{rank} at {club}</Badge></div>
                 <h1 className="display-font mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">{player.commonName || player.name}</h1>
                 {player.commonName && <p className="mt-2 text-sm text-muted-foreground">{player.name}</p>}
                 <p className="mt-1 text-sm font-medium text-primary">{club}</p>
+                {getPlayerPortrait(player.id) ? <a className="mt-2 inline-block text-[10px] text-muted-foreground underline"
+                  href={getPlayerPortrait(player.id)!.sourceUrl} target="_blank" rel="noreferrer">Photo: Premier League / FPL · display image, not a rating input</a>
+                  : <p className="mt-2 text-[10px] text-muted-foreground">Photo unavailable — initials shown, not a generated face.</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

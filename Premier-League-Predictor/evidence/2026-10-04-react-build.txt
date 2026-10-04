@@ -1,0 +1,24 @@
+
+> @workspace/premierpredict-dashboard@0.0.0 build /home/runner/workspace/artifacts/premierpredict-dashboard
+> vite build --config vite.config.ts
+
+vite v7.3.6 building client environment for production...
+transforming...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/avatar.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 3005 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/public/index.html                              1.69 kB │ gzip:   0.69 kB
+dist/public/assets/index-BgEW_kXu.css             133.86 kB │ gzip:  21.23 kB
+dist/public/assets/purify.es-CEBYger9.js           28.86 kB │ gzip:  11.03 kB
+dist/public/assets/index.es-BCBe-413.js           158.91 kB │ gzip:  52.91 kB
+dist/public/assets/html2canvas.esm-DXEQVQnt.js    201.04 kB │ gzip:  47.07 kB
+dist/public/assets/index-lq8NhJNo.js            1,480.10 kB │ gzip: 435.34 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 8.28s

@@ -4,12 +4,33 @@ export interface ModelMetric {
   model: string;
   accuracy: number;
   macroF1: number;
+  macroPrecision: number;
   drawF1: number;
 }
 
 export interface OutcomeDistribution {
   outcome: string;
   matches: number;
+}
+
+export interface OutcomeCounts {
+  H: number;
+  D: number;
+  A: number;
+}
+
+export interface EvaluationSummary {
+  validUniqueMatches: number;
+  trainMatches: number;
+  testMatches: number;
+  outcomeCounts: { all: OutcomeCounts; train: OutcomeCounts; test: OutcomeCounts };
+  trainingMajorityOutcome: string;
+  holdoutMajorityBaselineAccuracy: number;
+  datasetMajorityOutcome: string;
+  datasetMajorityBaselineAccuracy: number;
+  ratedMatchCount: number;
+  ratedTestMatchCount: number;
+  imputedPre2015MatchCount: number;
 }
 
 export interface RecentMatch {
@@ -142,11 +163,16 @@ export interface FeatureImportance {
 }
 
 export interface DashboardData {
+  schemaVersion: number;
+  inferenceArtifact: { path: string; sha256: string };
+  featureNames: string[];
+  predictionInputs: Record<string, Record<string, number>>;
   totalMatches: number;
   featureCount: number;
   latestSeason: number;
   teams: string[];
   metrics: ModelMetric[];
+  evaluationSummary: EvaluationSummary;
   outcomeDistribution: OutcomeDistribution[];
   recentMatches: RecentMatch[];
   predictions: PredictionsData;
@@ -164,12 +190,20 @@ export interface DashboardData {
     source_commit: string;
     feature_contract: string;
     historical_standings_source: string;
+    generated_at: string;
+    prediction_as_of: string;
+    model_configuration: string;
+    training_split: string;
+    test_split: string;
+    ratings_source: string;
+    ratings_seasons: string;
+    ratings_method: string;
   };
 }
 
 export function useDashboardData() {
   return useQuery<DashboardData>({
-    queryKey: ['dashboard-data'],
+    queryKey: ['dashboard-data', 5],
     queryFn: async () => {
       // Fetching from static public file
       const res = await fetch(
@@ -182,8 +216,13 @@ export function useDashboardData() {
       if (
         !payload ||
         typeof payload !== 'object' ||
+        (payload as DashboardData).schemaVersion !== 5 ||
+        !(payload as DashboardData).inferenceArtifact ||
+        !Array.isArray((payload as DashboardData).featureNames) ||
+        !(payload as DashboardData).predictionInputs ||
         !Array.isArray((payload as DashboardData).metrics) ||
         (payload as DashboardData).metrics.length === 0 ||
+        !(payload as DashboardData).evaluationSummary ||
         !Array.isArray((payload as DashboardData).teams) ||
         !Array.isArray((payload as DashboardData).teamStats) ||
         !Array.isArray((payload as DashboardData).seasonTrends) ||

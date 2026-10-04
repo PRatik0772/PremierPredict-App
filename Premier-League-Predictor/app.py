@@ -15,9 +15,9 @@ st.set_page_config(
 )
 
 
-@st.cache_resource(show_spinner="Training the three prediction models...")
+@st.cache_resource(show_spinner="Training the prediction models, including XGBoost...")
 def get_bundle():
-    return train_models()
+    return train_models(history_source="matches")
 
 
 def result_label(value: str) -> str:
@@ -28,6 +28,8 @@ bundle = get_bundle()
 
 st.title("PremierPredict")
 st.caption("English Premier League match outcome prediction")
+st.caption("Historical standings: reconstructed from checked-in prior-season match results. All models use fixed configurations.")
+st.caption("Available models: " + " · ".join(bundle.models))
 
 metric_one, metric_two, metric_three, metric_four = st.columns(4)
 metric_one.metric("Historical matches", f"{len(bundle.matches):,}")
@@ -78,12 +80,42 @@ if page == "Predict a match":
 elif page == "Model evaluation":
     st.header("Model evaluation")
     st.write(
-        "Evaluation uses a time-based split: seasons up to 2022 for training and "
-        "seasons from 2023 for testing. No future match outcomes are used as features."
+        "All models, including XGBoost, are evaluated on the same 2023–2025 holdout. The training "
+        "period is 2008–2022, and no future match outcomes are used as features."
     )
+    summary = bundle.evaluation_summary
+    total_col, train_col, test_col, baseline_col = st.columns(4)
+    total_col.metric("Valid unique matches", f"{summary['validUniqueMatches']:,}")
+    train_col.metric("Training matches", f"{summary['trainMatches']:,}")
+    test_col.metric("Held-out matches", f"{summary['testMatches']:,}")
+    baseline_col.metric(
+        "Training-majority baseline",
+        f"{summary['holdoutMajorityBaselineAccuracy']:.1%}",
+        help=(
+            f"Always predict {result_label(summary['trainingMajorityOutcome'])}, "
+            "the most common training outcome."
+        ),
+    )
+    outcome_counts = pd.DataFrame(summary["outcomeCounts"]).rename(
+        index={"H": "Home win", "D": "Draw", "A": "Away win"},
+        columns={"all": "All matches", "train": "Training", "test": "Held out"},
+    )
+    st.subheader("Outcome counts")
+    st.dataframe(outcome_counts, use_container_width=True)
+    st.caption(
+        f"The full-dataset majority outcome is {result_label(summary['datasetMajorityOutcome'])} "
+        f"at {summary['datasetMajorityBaselineAccuracy']:.2%}; this is outcome prevalence, "
+        "not a holdout benchmark."
+    )
+    st.info(bundle.provenance["ratings_method"])
     st.dataframe(
         bundle.metrics.style.format(
-            {"Accuracy": "{:.1%}", "Macro F1": "{:.3f}", "Draw F1": "{:.3f}"}
+            {
+                "Accuracy": "{:.1%}",
+                "Macro F1": "{:.3f}",
+                "Macro Precision": "{:.3f}",
+                "Draw F1": "{:.3f}",
+            }
         ),
         use_container_width=True,
         hide_index=True,

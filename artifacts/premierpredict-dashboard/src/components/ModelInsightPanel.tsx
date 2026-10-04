@@ -16,6 +16,8 @@ import {
 import type { DashboardData, PredictionData } from '@/hooks/use-dashboard-data';
 import { Badge } from '@/components/ui/badge';
 import { ClubCrest } from '@/components/ClubCrest';
+import { PredictionInputTable } from '@/components/PredictionInputTable';
+import { formatInputValue } from '@/lib/prediction-inputs';
 
 type ModelInsightPanelProps = {
   data: DashboardData;
@@ -51,13 +53,13 @@ const modelDetails: Record<string, {
     icon: Sigma,
     title: 'Logistic Regression',
     shortLabel: 'Weighted evidence',
-    summary: 'The 37 inputs become weighted evidence for each outcome, then are normalised into probabilities.',
+    summary: 'The predictor inputs become weighted evidence for each outcome, then are normalised into probabilities.',
     mechanics: [
       'Each feature pushes the home, draw, or away score up or down.',
       'The three scores are normalised together into one probability split.',
       'A larger probability means the weighted evidence is stronger for that outcome.',
     ],
-    settings: ['37 predictor inputs', 'Three outcome classes', 'Probability output', 'Transparent linear baseline'],
+    settings: ['Standardised predictor inputs', 'Three outcome classes', 'Probability output', 'Transparent linear baseline'],
   },
   'Random Forest': {
     icon: Layers3,
@@ -70,6 +72,30 @@ const modelDetails: Record<string, {
       'Averaging the trees reduces the effect of one unusual split.',
     ],
     settings: ['200 trees', 'Maximum depth: 12', 'Minimum samples per leaf: 3', 'Balanced subsample weights'],
+  },
+  'Gradient Boosting': {
+    icon: TrendingUp,
+    title: 'Gradient Boosting',
+    shortLabel: 'Sequential corrections',
+    summary: 'Small trees are added in sequence, each improving on errors left by the current ensemble.',
+    mechanics: [
+      'The ensemble begins with an initial outcome estimate.',
+      'Each new tree targets residual errors in the training predictions.',
+      'The combined scores produce home, draw, and away probabilities.',
+    ],
+    settings: ['200 boosting stages', 'Learning rate: 0.05', 'Maximum tree depth: 3', 'Fixed settings, not Optuna-tuned'],
+  },
+  'XGBoost': {
+    icon: TrendingUp,
+    title: 'XGBoost',
+    shortLabel: 'Regularised boosted trees',
+    summary: 'The XGBoost library trains a regularised tree ensemble for the three match outcomes. This is separate from scikit-learn Gradient Boosting.',
+    mechanics: [
+      'Successive trees improve the multiclass loss on training matches.',
+      'Row and feature sampling, plus regularisation, limit overly specific splits.',
+      'The trained class scores are normalised into home, draw, and away probabilities.',
+    ],
+    settings: ['200 boosting rounds', 'Learning rate: 0.05', 'Maximum tree depth: 3', '90% row and feature sampling; fixed settings'],
   },
 };
 
@@ -91,6 +117,9 @@ const friendlyFeatureNames: Record<string, string> = {
   away_previous_position: 'Away previous position',
   home_home_win_rate: 'Home home-win rate',
   away_away_win_rate: 'Away away-win rate',
+  home_current_points: 'Home current-season points',
+  away_current_points: 'Away current-season points',
+  current_points_diff: 'Current-season points gap',
 };
 
 function featureLabel(feature: string) {
@@ -110,39 +139,16 @@ function outcomeShortLabel(outcome: string) {
 }
 
 function featureContext(feature: string, data: DashboardData, homeTeam: string, awayTeam: string) {
-  const homeForm = data.formByClub[homeTeam];
-  const awayForm = data.formByClub[awayTeam];
-  const homePerformance = data.clubPerformance[homeTeam];
-  const awayPerformance = data.clubPerformance[awayTeam];
-  const homePlayers = data.playersByClub[homeTeam] || [];
-  const awayPlayers = data.playersByClub[awayTeam] || [];
-  const homeAverage = homePlayers.length ? homePlayers.reduce((sum, player) => sum + player.overallRating, 0) / homePlayers.length : undefined;
-  const awayAverage = awayPlayers.length ? awayPlayers.reduce((sum, player) => sum + player.overallRating, 0) / awayPlayers.length : undefined;
-  const homeMax = homePlayers.length ? Math.max(...homePlayers.map((player) => player.overallRating)) : undefined;
-  const awayMax = awayPlayers.length ? Math.max(...awayPlayers.map((player) => player.overallRating)) : undefined;
-  const recentGoals = (form: typeof homeForm, key: 'goalsFor' | 'goalsAgainst') => form?.matches.reduce((sum, match) => sum + match[key], 0);
-
-  const values: Record<string, string | undefined> = {
-    home_form_points: homeForm ? `${homeForm.wins * 3 + homeForm.draws} pts` : undefined,
-    away_form_points: awayForm ? `${awayForm.wins * 3 + awayForm.draws} pts` : undefined,
-    form_points_diff: homeForm && awayForm ? `${(homeForm.wins * 3 + homeForm.draws) - (awayForm.wins * 3 + awayForm.draws)} pts` : undefined,
-    recent_goals_scored_diff: homeForm && awayForm ? `${(recentGoals(homeForm, 'goalsFor') || 0) - (recentGoals(awayForm, 'goalsFor') || 0)} goals` : undefined,
-    recent_goals_conceded_diff: homeForm && awayForm ? `${(recentGoals(homeForm, 'goalsAgainst') || 0) - (recentGoals(awayForm, 'goalsAgainst') || 0)} goals` : undefined,
-    home_avg_rating: homeAverage === undefined ? undefined : homeAverage.toFixed(1),
-    away_avg_rating: awayAverage === undefined ? undefined : awayAverage.toFixed(1),
-    home_max_rating: homeMax === undefined ? undefined : String(homeMax),
-    away_max_rating: awayMax === undefined ? undefined : String(awayMax),
-    home_home_win_rate: homePerformance ? `${(homePerformance.homeWinRate * 100).toFixed(1)}%` : undefined,
-    away_away_win_rate: awayPerformance ? `${(awayPerformance.awayWinRate * 100).toFixed(1)}%` : undefined,
-  };
-
-  return values[feature] || 'Stored model input';
+  const value = data.predictionInputs[`${homeTeam}|||${awayTeam}`]?.[feature];
+  return value === undefined ? 'Input unavailable' : formatInputValue(feature, value);
 }
 
 function featureNarrative(feature: string, value: string, homeTeam: string, awayTeam: string) {
+  if (value === 'Input unavailable') return 'The exact value for this fixture was not stored.';
+  if (feature.endsWith('_diff') && Number.parseFloat(value.replaceAll(',', '')) === 0) return 'Both teams have the same value for this input.';
   if (feature.includes('form_points_diff')) return value.startsWith('-') ? `${awayTeam} arrive with the stronger recent points return.` : `${homeTeam} arrive with the stronger recent points return.`;
   if (feature.includes('goals_scored_diff')) return value.startsWith('-') ? `${awayTeam} have scored more across the recent form window.` : `${homeTeam} have scored more across the recent form window.`;
-  if (feature.includes('goals_conceded_diff')) return value.startsWith('-') ? `${awayTeam} have the lower recent goals-conceded figure.` : `${homeTeam} have the lower recent goals-conceded figure.`;
+  if (feature.includes('goals_conceded_diff')) return value.startsWith('-') ? `${homeTeam} have the lower recent goals-conceded figure.` : `${awayTeam} have the lower recent goals-conceded figure.`;
   if (feature.includes('home_')) return `${homeTeam}'s home profile is part of this model input.`;
   if (feature.includes('away_')) return `${awayTeam}'s away profile is part of this model input.`;
   if (feature.includes('previous_points') || feature.includes('previous_goal')) return 'The historical gap gives the model a longer-term team-strength signal.';
@@ -335,7 +341,7 @@ export function ModelInsightPanel({ data, model, prediction, homeTeam, awayTeam 
                       <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-[6px] border-primary/20 bg-card text-center"><span className="mono-font text-xs font-semibold text-primary">{formatImportance(selectedFeature.importance)}</span></div>
                     </div>
                     <div className="mt-6 rounded-2xl border border-primary/15 bg-card p-4">
-                      <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">This fixture's context</div>
+                       <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Actual model input for this fixture</div>
                       <div className="mt-2 flex items-end justify-between gap-3"><span className="display-font text-2xl font-semibold text-primary">{selectedFeatureValue}</span><CheckCircle2 className="mb-1 h-4 w-4 text-primary" /></div>
                     </div>
                     <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{featureNarrative(selectedFeature.feature, selectedFeatureValue, homeTeam, awayTeam)}</p>
@@ -345,6 +351,8 @@ export function ModelInsightPanel({ data, model, prediction, homeTeam, awayTeam 
               </div>
             </div>
           )}
+
+          <PredictionInputTable data={data} homeTeam={homeTeam} awayTeam={awayTeam} />
 
           {lens === 'context' && (
             <div className="grid gap-3 md:grid-cols-3">
