@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "gdz40YDYEyvseltm_9sMx"
+uri = "file://artifacts/premierpredict-dashboard/public/premierpredict-mark.png"
+type = "image"
+title = "PremierPredict logo"
+description = "Generated transparent PNG shield mark in forest green and gold, now used in the dashboard header."
+logical_id = "a6413255-e434-4b08-8aea-d1257b6a4e95"
+content_hash = "sha256:0a76280005433fdb09bfb3a7b501f4d7ab093133576514537bef7ec6c606f936"
+size = 1213681
+mtime_ms = 1791084561312
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:974d393a-81af-482e-87bf-86c9267f29c7/a6413255-e434-4b08-8aea-d1257b6a4e95/dc1b3d03-30b0-4568-8b6d-5e1aec92cacc"
+storage_version_token = "1791088653543322"
+content_type = "image/png"
