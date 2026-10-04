@@ -24,6 +24,20 @@ my speaking segment is the live demonstration on Slide 13.
    **accuracy, macro F1, and macro precision**.
 9. If the existing match PDF comes up, explain that it is the **baseline**
    report, not a report of the temporary roster scenario.
+10. In **Model evaluation**, show the consolidated Home/Draw/Away precision,
+    recall, F1 and support table for all five models. The downloadable evaluation
+    update documents the same test period and separates current verified scores
+    from the unreconciled figures in the earlier teacher feedback.
+11. Open **Live odds**. Choose an actual upcoming fixture, a bookmaker and a
+    model. Compare decimal prices and margin-normalized bookmaker probabilities
+    with model probabilities. Use **Refetch** to request the latest listed prices.
+    If the source has no complete market or the model does not cover a club,
+    show the unavailable message rather than choosing a substitute team.
+12. Show the full-body captain-versus podium banner in Live odds, Overview and
+    Match prediction. Team selections update the figures and club emblems.
+    These are illustrated club-captain references, not confirmed matchday lineups.
+    The outcome cards separate the model's percentage estimate from the
+    bookmaker's normalized estimate and decimal price multiplier.
 
 ## Evaluation facts for the live demo
 
@@ -55,6 +69,10 @@ instead of only visible in a Python script.”
 - The ratings are a static squad snapshot. Exclusion is sensitivity analysis,
   not a confirmed match lineup or proof of a causal injury effect.
 - The model is not retrained when a checkbox changes.
+- Live odds come from ESPN's public feed, currently DraftKings. The timestamp
+  records browser retrieval, not the bookmaker's quote update. Coverage is
+  limited and prices are not streamed. Models still use history ending on
+  24 May 2026; odds do not refresh model inputs or prove betting profitability.
 
 ## Scope
 
