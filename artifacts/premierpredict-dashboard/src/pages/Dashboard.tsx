@@ -148,9 +148,11 @@ export default function Dashboard() {
     <div className="min-h-[100dvh] bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-sidebar text-sidebar-foreground lg:flex">
         <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
-            <Trophy className="h-4 w-4" />
-          </div>
+          <img
+            src={`${import.meta.env.BASE_URL}premierpredict-mark.png`}
+            alt=""
+            className="h-10 w-10 shrink-0 object-contain"
+          />
           <div>
             <div className="display-font text-[17px] font-semibold tracking-tight">PremierPredict</div>
             <div className="mono-font text-[9px] uppercase tracking-[0.22em] text-sidebar-foreground/55">Research desk</div>
@@ -199,7 +201,11 @@ export default function Dashboard() {
         <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
           <div className="mx-auto flex min-h-20 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8">
             <div className="flex items-center gap-3 lg:hidden">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Trophy className="h-4 w-4" /></div>
+              <img
+                src={`${import.meta.env.BASE_URL}premierpredict-mark.png`}
+                alt=""
+                className="h-10 w-10 shrink-0 object-contain"
+              />
               <div>
                 <div className="display-font text-base font-semibold">PremierPredict</div>
                 <div className="mono-font text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Research desk</div>
