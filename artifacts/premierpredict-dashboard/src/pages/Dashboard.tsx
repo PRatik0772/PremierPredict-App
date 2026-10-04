@@ -14,6 +14,7 @@ import {
   Download,
   GitCommitHorizontal,
   Info,
+  Radio,
   Network,
   RefreshCw,
   Share2,
@@ -43,6 +44,8 @@ import { useDashboardData, type DashboardData, type ModelMetric, type PlayerProf
 import { ExploreWorkbench } from '@/components/ExploreWorkbench';
 import { ClubCrest } from '@/components/ClubCrest';
 import { ClubFormation } from '@/components/ClubFormation';
+import { LiveOddsPanel } from '@/components/LiveOddsPanel';
+import { AllModelEvaluation } from '@/components/AllModelEvaluation';
 import { ModelInsightPanel } from '@/components/ModelInsightPanel';
 import { PlayerRatingScenario } from '@/components/PlayerRatingScenario';
 import { getPositionLabel } from '@/lib/positions';
@@ -53,6 +56,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CaptainMatchupHero } from '@/components/CaptainMatchupHero';
 import { useToast } from '@/hooks/use-toast';
 
 const CHART_COLORS = {
@@ -68,6 +72,7 @@ const tabs = [
   { value: 'teams', label: 'Team insights', icon: UsersRound },
   { value: 'explore', label: 'Explore & compare', icon: Compass },
   { value: 'evaluation', label: 'Model evaluation', icon: BrainCircuit },
+  { value: 'odds', label: 'Live odds', icon: Radio },
 ];
 
 const outcomeInfo: Record<string, { label: string; short: string; color: string }> = {
@@ -238,7 +243,7 @@ export default function Dashboard() {
             </div>
 
             <TabsContent value="overview" className="m-0 space-y-7">
-              <OverviewTab data={data} topModel={topModel} />
+              <OverviewTab data={data} topModel={topModel} selectedModel={selectedModel} homeTeam={homeTeam} setHomeTeam={setHomeTeam} awayTeam={awayTeam} setAwayTeam={setAwayTeam} />
               <ProvenanceCard provenance={data.provenance} />
             </TabsContent>
             <TabsContent value="prediction" className="m-0 space-y-7">
@@ -254,6 +259,13 @@ export default function Dashboard() {
               <EvaluationTab data={data} selectedModel={selectedModel} setSelectedModel={setSelectedModel} />
               <ProvenanceCard provenance={data.provenance} compact />
             </TabsContent>
+            <TabsContent value="odds" className="m-0 space-y-7">
+              <LiveOddsPanel data={data} />
+              <details className="rounded-2xl border border-border bg-card p-4" data-testid="details-odds-sources">
+                <summary className="cursor-pointer text-sm font-semibold">Model data and sources</summary>
+                <div className="mt-4 break-words [overflow-wrap:anywhere] [&_a]:break-all"><ProvenanceCard provenance={data.provenance} compact /></div>
+              </details>
+            </TabsContent>
           </Tabs>
         </main>
       </div>
@@ -261,11 +273,23 @@ export default function Dashboard() {
   );
 }
 
-function OverviewTab({ data, topModel }: { data: DashboardData; topModel: ModelMetric }) {
+function OverviewTab({ data, topModel, selectedModel, homeTeam, setHomeTeam, awayTeam, setAwayTeam }: { data: DashboardData; topModel: ModelMetric; selectedModel: string; homeTeam: string; setHomeTeam: (v: string) => void; awayTeam: string; setAwayTeam: (v: string) => void }) {
+  const ovPrediction = data.predictions[selectedModel]?.[`${homeTeam}|||${awayTeam}`];
   const chartData = data.outcomeDistribution.map((item) => ({ name: outcomeInfo[item.outcome]?.label || item.outcome, code: item.outcome, matches: item.matches }));
 
   return (
     <>
+      <CaptainMatchupHero home={homeTeam} away={awayTeam}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5"><label htmlFor="overview-home-select" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">Home team</label>
+            <Select value={homeTeam} onValueChange={setHomeTeam}><SelectTrigger id="overview-home-select" data-testid="select-overview-home" className="h-11 border-white/20 bg-white/10 text-white"><SelectValue placeholder="Select home team" /></SelectTrigger>
+              <SelectContent>{data.teams.map((t) => <SelectItem key={t} value={t} disabled={t === awayTeam}>{t}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1.5"><label htmlFor="overview-away-select" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">Away team</label>
+            <Select value={awayTeam} onValueChange={setAwayTeam}><SelectTrigger id="overview-away-select" data-testid="select-overview-away" className="h-11 border-white/20 bg-white/10 text-white"><SelectValue placeholder="Select away team" /></SelectTrigger>
+              <SelectContent>{data.teams.map((t) => <SelectItem key={t} value={t} disabled={t === homeTeam}>{t}</SelectItem>)}</SelectContent></Select></div>
+        </div>
+        <p className="mt-3 text-center text-xs text-white/70" data-testid="text-overview-prediction">{ovPrediction ? <>{selectedModel} most likely outcome: <strong className="text-[#f4c84a]">{ovPrediction.predicted === 'H' ? `${homeTeam} win` : ovPrediction.predicted === 'A' ? `${awayTeam} win` : 'Draw'}</strong></> : 'No stored prediction for this pairing.'}</p>
+      </CaptainMatchupHero>
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <MetricCard icon={Activity} label="Matches modelled" value={data.totalMatches.toLocaleString()} note="All tracked seasons" accent="default" />
         <MetricCard icon={Network} label="Input features" value={data.featureCount.toString()} note="Per prediction instance" accent="default" />
@@ -377,6 +401,7 @@ function PredictionTab({ data, selectedModel, setSelectedModel, homeTeam, setHom
 
   return (
     <div className="space-y-5">
+      <CaptainMatchupHero home={homeTeam} away={awayTeam} />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mono-font text-[10px] uppercase tracking-[0.2em] text-primary">Match prediction</p>
@@ -853,6 +878,8 @@ function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: Dashbo
           </Select>
         </div>
       </div>
+
+      <AllModelEvaluation data={data} />
 
       <Card className="overflow-hidden rounded-3xl">
         <CardHeader className="border-b border-border/70 pb-5">

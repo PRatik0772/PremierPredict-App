@@ -19,12 +19,18 @@ const PREMIER_LEAGUE_BADGE_IDS: Record<string, number> = {
   'Tottenham Hotspur': 6,
   'West Ham United': 21,
   'Wolverhampton Wanderers': 39,
+  'Ipswich Town': 40,
+  'AFC Bournemouth': 91,
+  'Brighton & Hove Albion': 36,
+  'Coventry City': 80,
+  Coventry: 80,
+  'Hull City': 88,
 };
 
 export function getClubCrestUrl(team: string) {
   const badgeId = PREMIER_LEAGUE_BADGE_IDS[team];
   return badgeId
-    ? `https://resources.premierleague.com/premierleague/badges/50/t${badgeId}.png`
+    ? `${import.meta.env?.BASE_URL ?? '/'}images/club-crests/t${badgeId}.png`
     : undefined;
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getClubCrestUrl, getClubInitials } from '@/lib/club-logos';
 
 type ClubCrestProps = {
@@ -17,6 +17,7 @@ const sizeClasses = {
 export function ClubCrest({ team, size = 'md', className = '' }: ClubCrestProps) {
   const [failed, setFailed] = useState(false);
   const src = getClubCrestUrl(team);
+  useEffect(() => { setFailed(false); }, [src]);
 
   return (
     <div
