@@ -59,6 +59,7 @@ const CHART_COLORS = {
   accent: 'hsl(var(--chart-2))',
   blue: 'hsl(var(--chart-3))',
   slate: 'hsl(var(--chart-4))',
+  orange: 'hsl(var(--chart-5))',
 };
 
 const tabs = [
@@ -844,8 +845,27 @@ function ModelProfile({ model }: { model: string }) {
 }
 
 function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: DashboardData; selectedModel: string; setSelectedModel: (value: string) => void }) {
-  const sortedMetrics = useMemo(() => [...data.metrics].sort((a, b) => b.accuracy - a.accuracy), [data.metrics]);
-  const chartData = sortedMetrics.map((metric) => ({ name: metric.model, Accuracy: Number((metric.accuracy * 100).toFixed(1)), 'Draw F1': Number((metric.drawF1 * 100).toFixed(1)) }));
+  const sortedMetrics = useMemo(() => {
+    const outcomes = ['H', 'D', 'A'];
+    return data.metrics.map((metric) => {
+      const modelClasses = data.classMetrics[metric.model] || [];
+      const macroAverage = (key: 'precision' | 'recall') => {
+        const scores = outcomes.map((outcome) => modelClasses.find((classMetric) => classMetric.outcome === outcome)?.[key]);
+        return scores.every((score): score is number => typeof score === 'number')
+          ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+          : null;
+      };
+      return { ...metric, macroPrecision: macroAverage('precision'), macroRecall: macroAverage('recall') };
+    }).sort((a, b) => b.accuracy - a.accuracy);
+  }, [data.classMetrics, data.metrics]);
+  const chartData = sortedMetrics.map((metric) => ({
+    name: metric.model,
+    Accuracy: Number((metric.accuracy * 100).toFixed(1)),
+    'Macro precision': metric.macroPrecision === null ? null : Number((metric.macroPrecision * 100).toFixed(1)),
+    'Macro recall': metric.macroRecall === null ? null : Number((metric.macroRecall * 100).toFixed(1)),
+    'Macro F1': Number((metric.macroF1 * 100).toFixed(1)),
+    'Draw F1': Number((metric.drawF1 * 100).toFixed(1)),
+  }));
   const featureData = (data.featureImportance[selectedModel] || []).slice(0, 10).map((item) => ({
     feature: readableFeature(item.feature),
     importance: Number((item.importance * 100).toFixed(1)),
@@ -873,11 +893,11 @@ function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: Dashbo
 
       <Card className="overflow-hidden">
         <CardHeader className="flex-row items-start justify-between space-y-0 border-b border-border/70 pb-5">
-          <div><CardTitle className="display-font text-xl">Model comparison</CardTitle><CardDescription className="mt-1">Accuracy against draw detection capability.</CardDescription></div>
+          <div><CardTitle className="display-font text-xl">Model comparison</CardTitle><CardDescription className="mt-1">Accuracy, macro precision, macro recall, macro F1, and draw F1. Macro scores weight Home, Draw, and Away equally.</CardDescription></div>
           <Badge variant="outline" className="hidden gap-1.5 text-[10px] sm:flex"><Info className="h-3 w-3" /> Percent</Badge>
         </CardHeader>
         <CardContent className="p-5 pt-7 sm:p-7">
-          {chartData.length ? <div className="h-[310px] sm:h-[360px]" data-testid="chart-model-comparison">
+          {chartData.length ? <div className="h-[360px] sm:h-[410px]" data-testid="chart-model-comparison">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 15, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="2 5" vertical={false} stroke="hsl(var(--border))" />
@@ -886,6 +906,9 @@ function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: Dashbo
                 <Tooltip cursor={{ fill: 'hsl(var(--muted) / .55)' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '10px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} formatter={(value: number) => [`${value}%`]} />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '14px' }} />
                 <Bar dataKey="Accuracy" fill={CHART_COLORS.primary} radius={[4, 4, 1, 1]} isAnimationActive={false} />
+                <Bar dataKey="Macro precision" fill={CHART_COLORS.blue} radius={[4, 4, 1, 1]} isAnimationActive={false} />
+                <Bar dataKey="Macro recall" fill={CHART_COLORS.slate} radius={[4, 4, 1, 1]} isAnimationActive={false} />
+                <Bar dataKey="Macro F1" fill={CHART_COLORS.orange} radius={[4, 4, 1, 1]} isAnimationActive={false} />
                 <Bar dataKey="Draw F1" fill={CHART_COLORS.accent} radius={[4, 4, 1, 1]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
@@ -950,15 +973,17 @@ function EvaluationTab({ data, selectedModel, setSelectedModel }: { data: Dashbo
       </Card>
 
       <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border/70 pb-5"><CardTitle className="display-font text-xl">Performance metrics</CardTitle><CardDescription className="mt-1">A readable comparison of every supplied model.</CardDescription></CardHeader>
+        <CardHeader className="border-b border-border/70 pb-5"><CardTitle className="display-font text-xl">Performance metrics</CardTitle><CardDescription className="mt-1">Macro precision, recall, and F1 give equal weight to Home, Draw, and Away outcomes.</CardDescription></CardHeader>
         <CardContent className="p-0">
           {sortedMetrics.length ? <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-sm" data-testid="table-performance-metrics">
-              <thead><tr className="border-b border-border/70 bg-muted/45 text-left text-[10px] uppercase tracking-[0.11em] text-muted-foreground"><th className="px-5 py-4 font-semibold">Model architecture</th><th className="px-5 py-4 font-semibold">Overall accuracy</th><th className="px-5 py-4 font-semibold">Macro F1</th><th className="px-5 py-4 font-semibold">Draw F1</th></tr></thead>
+            <table className="w-full min-w-[980px] text-sm" data-testid="table-performance-metrics">
+              <thead><tr className="border-b border-border/70 bg-muted/45 text-left text-[10px] uppercase tracking-[0.11em] text-muted-foreground"><th className="px-5 py-4 font-semibold">Model architecture</th><th className="px-5 py-4 font-semibold">Overall accuracy</th><th className="px-5 py-4 font-semibold">Macro precision</th><th className="px-5 py-4 font-semibold">Macro recall</th><th className="px-5 py-4 font-semibold">Macro F1</th><th className="px-5 py-4 font-semibold">Draw F1</th></tr></thead>
               <tbody className="divide-y divide-border/70">
                 {sortedMetrics.map((metric, index) => <tr key={metric.model} data-testid={`row-model-metric-${index}`} className="transition-colors hover:bg-muted/35">
                   <td className="px-5 py-4 font-semibold"><span className="flex items-center gap-2">{index === 0 && <Trophy className="h-3.5 w-3.5 text-accent" />}{metric.model}{index === 0 && <Badge className="ml-1 bg-primary/10 text-[10px] text-primary hover:bg-primary/10">Best accuracy</Badge>}</span></td>
                   <td className="mono-font px-5 py-4">{(metric.accuracy * 100).toFixed(1)}%</td>
+                  <td className="mono-font px-5 py-4 text-muted-foreground">{metric.macroPrecision === null ? '—' : `${(metric.macroPrecision * 100).toFixed(1)}%`}</td>
+                  <td className="mono-font px-5 py-4 text-muted-foreground">{metric.macroRecall === null ? '—' : `${(metric.macroRecall * 100).toFixed(1)}%`}</td>
                   <td className="mono-font px-5 py-4 text-muted-foreground">{(metric.macroF1 * 100).toFixed(1)}%</td>
                   <td className="px-5 py-4"><span className={`mono-font rounded-md px-2 py-1 text-xs ${metric.drawF1 > 0.3 ? 'bg-accent/20 text-accent-foreground' : 'bg-muted text-muted-foreground'}`}>{(metric.drawF1 * 100).toFixed(1)}%</span></td>
                 </tr>)}
